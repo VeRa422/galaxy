@@ -182,6 +182,16 @@ input[type=range]{width:100%;accent-color:var(--acc)}
   <div class="box">
     <div class="ui-grid">
       <div class="ui-item"><label>Фон (URL)</label><input type="text" id="inp-bg" value="" oninput="liveStyle()"></div>
+      <div class="ui-item">
+        <label>Частицы на фоне</label>
+        <select id="sel-particles" onchange="startParticles()">
+          <option value="stars">★ Звёзды</option>
+          <option value="sparks">✦ Искры</option>
+          <option value="butterflies">🦋 Бабочки</option>
+          <option value="bubbles">○ Пузыри</option>
+          <option value="none">— Без эффектов</option>
+        </select>
+      </div>
       <div class="ui-item" style="display:flex;align-items:center;gap:8px;padding-top:4px">
         <input type="checkbox" id="chk-transparent" onchange="liveStyle()" style="width:16px;height:16px;accent-color:#a78bfa;cursor:pointer">
         <label for="chk-transparent" style="cursor:pointer;font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:1px">Прозрачный фон (для Genially)</label>
@@ -235,6 +245,7 @@ input[type=range]{width:100%;accent-color:var(--acc)}
 <div id="stage-wrap">
   <div id="stage">
     <canvas id="bg-canvas" width="800" height="450"></canvas>
+    <canvas id="particle-canvas" width="800" height="450" style="position:absolute;top:0;left:0;pointer-events:none;z-index:1"></canvas>
     <canvas id="game-canvas" width="800" height="450"></canvas>
     <div id="s-cursor">
       <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -374,6 +385,84 @@ function drawStarsOnBg(color) {
 
 // Twinkle animation
 let twinkleFrame = 0;
+// ── PARTICLES SYSTEM ─────────────────────────────────────────────
+let particlesList = [];
+let particleTimer = null;
+
+function startParticles() {
+  cancelAnimationFrame(particleTimer);
+  particlesList = [];
+  const type = document.getElementById('sel-particles')?.value || 'stars';
+  if (type === 'none') return;
+  animateParticles(type);
+}
+
+function animateParticles(type) {
+  const W = bgCanvas.width || window.innerWidth;
+  const H = bgCanvas.height || window.innerHeight;
+
+  // Spawn
+  if (Math.random() < 0.3) {
+    if (type === 'sparks') {
+      for (let i = 0; i < 3; i++) particlesList.push({
+        x: Math.random()*W, y: Math.random()*H,
+        vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2,
+        life: 1, decay: 0.02+Math.random()*0.02,
+        size: 1+Math.random()*2, color:'#a78bfa'
+      });
+    } else if (type === 'butterflies') {
+      particlesList.push({
+        x: Math.random()*W, y: H+20,
+        vx: (Math.random()-0.5)*1.5, vy: -(0.5+Math.random()),
+        life: 1, decay: 0.004, size: 10+Math.random()*8,
+        angle: 0, angleSpeed: 0.1+Math.random()*0.1, color:'#c4b5fd'
+      });
+    } else if (type === 'bubbles') {
+      particlesList.push({
+        x: Math.random()*W, y: H+20,
+        vx: (Math.random()-0.5)*0.5, vy: -(0.3+Math.random()*0.5),
+        life: 1, decay: 0.003, size: 4+Math.random()*12, color:'#818cf8'
+      });
+    }
+  }
+
+  // Draw
+  particlesList = particlesList.filter(p => p.life > 0);
+  const pCv = document.getElementById('particle-canvas'); if(!pCv) return;
+  const ctx2 = pCv.getContext('2d');
+  ctx2.clearRect(0,0,pCv.width,pCv.height);
+
+  particlesList.forEach(p => {
+    p.x += p.vx; p.y += p.vy; p.life -= p.decay;
+    ctx2.save();
+    ctx2.globalAlpha = p.life * 0.8;
+    if (type === 'sparks') {
+      ctx2.shadowBlur = 8; ctx2.shadowColor = p.color;
+      ctx2.fillStyle = p.color;
+      ctx2.beginPath();
+      ctx2.arc(p.x, p.y, p.size, 0, Math.PI*2);
+      ctx2.fill();
+    } else if (type === 'butterflies') {
+      p.angle = (p.angle||0) + p.angleSpeed;
+      ctx2.translate(p.x, p.y);
+      ctx2.font = `${p.size}px serif`;
+      ctx2.textAlign = 'center';
+      ctx2.fillStyle = p.color;
+      ctx2.fillText('🦋', 0, 0);
+    } else if (type === 'bubbles') {
+      ctx2.strokeStyle = p.color;
+      ctx2.lineWidth = 1;
+      ctx2.shadowBlur = 4; ctx2.shadowColor = p.color;
+      ctx2.beginPath();
+      ctx2.arc(p.x, p.y, p.size, 0, Math.PI*2);
+      ctx2.stroke();
+    }
+    ctx2.restore();
+  });
+
+  particleTimer = requestAnimationFrame(() => animateParticles(type));
+}
+
 function animateBgStars() {
   twinkleFrame++;
   const color = document.getElementById('col-bgstar').value;
@@ -444,8 +533,8 @@ function liveStyle() {
   const c = getCfg();
   // Прозрачный фон
   const transp = document.getElementById('chk-transparent')?.checked;
-  stage.style.background = transp ? 'transparent' : '';
-  bgCanvas.style.display = transp ? 'none' : 'block';
+  stage.style.background = transp ? 'transparent' : '#020617';
+  bgCanvas.style.opacity = transp ? '0' : '1';
   cursor.style.width = c.cursorSize+'px';
   cursor.style.height = c.cursorSize+'px';
   // Update cursor SVG color
@@ -750,6 +839,8 @@ function generateCode() {
     sErr: document.getElementById('s-err').value,
     sLevel: document.getElementById('s-level').value,
     sWin: document.getElementById('snd-win').value,
+    particles: document.getElementById('sel-particles')?.value || 'stars',
+    transparent: document.getElementById('chk-transparent')?.checked || false,
   };
   const dataStr = btoa(encodeURIComponent(JSON.stringify(data)));
   const baseUrl = window.location.href.split('?')[0];
@@ -773,32 +864,73 @@ function initFromUrl() {
   if (!params.has('data')) return;
   try {
     const d = JSON.parse(decodeURIComponent(atob(params.get('data'))));
+
+    // Скрываем редактор, растягиваем stage на весь экран
     document.getElementById('editor').style.display = 'none';
-    stage.style.width='100vw'; stage.style.height='100vh';
-    stage.style.position='fixed'; stage.style.top='0'; stage.style.left='0';
-    document.body.style.margin='0'; document.body.style.padding='0';
-    document.body.style.overflow='hidden'; document.body.style.background='transparent';
-    bgCanvas.width=window.innerWidth; bgCanvas.height=window.innerHeight;
-    canvas.width=window.innerWidth; canvas.height=window.innerHeight; bgCanvas.width=window.innerWidth; bgCanvas.height=window.innerHeight;
+    document.body.style.margin = '0';
+    document.body.style.padding = '0';
+    document.body.style.overflow = 'hidden';
+    document.body.style.background = 'transparent';
+    document.getElementById('stage-wrap').style.background = 'transparent';
 
-    if (d.sentences) { document.getElementById('sentences-list').innerHTML=''; d.sentences.forEach(s=>addSentence(s)); }
+    const stg = document.getElementById('stage');
+    stg.style.position = 'fixed';
+    stg.style.top = '0';
+    stg.style.left = '0';
+    stg.style.width = '100vw';
+    stg.style.height = '100vh';
+    stg.style.borderRadius = '0';
+
+    bgCanvas.style.width = '100vw';
+    bgCanvas.style.height = '100vh';
+    bgCanvas.width = window.innerWidth;
+    bgCanvas.height = window.innerHeight;
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const pCv = document.getElementById('particle-canvas');
+    if (pCv) { pCv.style.width='100vw'; pCv.style.height='100vh'; pCv.width=window.innerWidth; pCv.height=window.innerHeight; }
+
+    // Восстановить настройки
     const map = {
-      bgUrl:'inp-bg', starcount:'inp-starcount', tabSize:'inp-tabsize', cursorSize:'inp-cursorsize',
-      colBgStar:'col-bgstar', colTabBg:'col-tab-bg', colTabTxt:'col-tab-txt', colTabBd:'col-tab-bd',
-      colStar:'col-star', colLine:'col-line', colSlot:'col-slot', colCursor:'col-cursor',
-      artifactLbl:'lbl-artifact', winTitle:'lbl-win-title', winText:'lbl-win-text', againLbl:'lbl-again',
-      sOk:'s-ok', sErr:'s-err', sLevel:'s-level', sWin:'snd-win'
+      bgUrl:'inp-bg', starcount:'inp-starcount', tabSize:'inp-tabsize',
+      cursorSize:'inp-cursorsize', colBgStar:'col-bgstar', colTabBg:'col-tab-bg',
+      colTabTxt:'col-tab-txt', colTabBd:'col-tab-bd', colStar:'col-star',
+      colLine:'col-line', colSlot:'col-slot', colCursor:'col-cursor',
+      artifactLbl:'lbl-artifact', winTitle:'lbl-win-title',
+      winText:'lbl-win-text', againLbl:'lbl-again',
+      sOk:'s-ok', sErr:'s-err', sLevel:'s-level', sWin:'snd-win',
+      particles:'sel-particles'
     };
-    Object.entries(map).forEach(([k,id])=>{ if(d[k]!==undefined) document.getElementById(id).value=d[k]; });
+    Object.entries(map).forEach(([k,id]) => {
+      const el = document.getElementById(id);
+      if (el && d[k] !== undefined) el.value = d[k];
+    });
+    if (d.sentences) {
+      document.getElementById('sentences-list').innerHTML = '';
+      d.sentences.forEach(s => addSentence(s));
+    }
+    if (d.transparent) {
+      const chk = document.getElementById('chk-transparent');
+      if (chk) chk.checked = true;
+    }
 
+    // Загрузить звуки при первом касании
     document.addEventListener('pointermove', function _init() {
-      ['ok','err','level','win'].forEach(k=>loadAudio(k, document.getElementById(k==='win'?'snd-win':'s-'+k).value));
+      ['ok','err','level'].forEach(k => loadAudio(k, document.getElementById('s-'+k).value));
+      loadAudio('win', document.getElementById('snd-win').value);
       document.removeEventListener('pointermove', _init);
-    },{once:true});
+    }, {once: true});
+
+    // Перегенерировать звёзды под новый размер
+    generateBgStars();
+    drawBgStars();
 
     setTimeout(startPreview, 300);
-  } catch(e){ console.error(e); }
+  } catch(e) { console.error('URL parse error', e); }
 }
+
 
 // ── INIT ──────────────────────────────────────────────────────────
 const defaultSentences = [
@@ -812,6 +944,7 @@ defaultSentences.forEach(s => addSentence(s));
 generateBgStars();
 drawBgStars();
 animateBgStars();
+startParticles();
 liveStyle();
 initFromUrl();
 draw(); // запускаем игровой цикл рисования
