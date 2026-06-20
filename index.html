@@ -208,6 +208,7 @@ input[type=range]{width:100%;accent-color:var(--acc)}
     <div class="ui-grid">
       <div class="ui-item"><label>Цвет звёзд фона</label><input type="color" id="col-bgstar" value="#ffffff" oninput="generateBgStars(); reinitDebounced()"></div>
       <div class="ui-item"><label>Цвет таблички</label><input type="color" id="col-tab-bg" value="#0f172a" oninput="liveStyle()"></div>
+      <div class="ui-item"><label>Прозрачность таблички</label><input type="range" id="inp-tab-opacity" min="0" max="100" value="85" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Текст таблички</label><input type="color" id="col-tab-txt" value="#e2e8f0" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Рамка таблички</label><input type="color" id="col-tab-bd" value="#a78bfa" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Звезда-ответ</label><input type="color" id="col-star" value="#a78bfa" oninput="liveStyle()"></div>
@@ -393,7 +394,12 @@ function startParticles() {
   cancelAnimationFrame(particleTimer);
   particlesList = [];
   const type = document.getElementById('sel-particles')?.value || 'stars';
-  if (type === 'none') return;
+  if (type === 'none') {
+    // Очистить canvas частиц
+    const pCv = document.getElementById('particle-canvas');
+    if (pCv) pCv.getContext('2d').clearRect(0,0,pCv.width,pCv.height);
+    return;
+  }
   animateParticles(type);
 }
 
@@ -505,6 +511,7 @@ function getCfg() {
     tabSize: parseInt(document.getElementById('inp-tabsize').value)||16,
     cursorSize: parseInt(document.getElementById('inp-cursorsize').value)||48,
     colTabBg: document.getElementById('col-tab-bg').value,
+    tabOpacity: parseInt(document.getElementById('inp-tab-opacity')?.value ?? 85),
     colTabTxt: document.getElementById('col-tab-txt').value,
     colTabBd: document.getElementById('col-tab-bd').value,
     colStar: document.getElementById('col-star').value,
@@ -544,13 +551,18 @@ function liveStyle() {
   });
   cursor.style.filter = `drop-shadow(0 0 8px ${c.colCursor})`;
   document.querySelectorAll('.s-tablet').forEach(el => {
-    el.style.background = c.colTabBg;
+    const op = (c.tabOpacity/100).toFixed(2);
+    const hex = c.colTabBg;
+    const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+    el.style.background = `rgba(${r},${g},${b},${op})`;
     el.style.color = c.colTabTxt;
     el.style.borderColor = c.colTabBd+'66';
     el.style.fontSize = c.tabSize+'px';
   });
   document.querySelectorAll('.word-label').forEach(el => {
     el.style.fontSize = c.tabSize+'px';
+    el.style.color = c.colTabTxt;
+    el.style.textShadow = `0 0 8px ${c.colTabTxt}88`;
   });
   document.querySelectorAll('.s-star').forEach(el => {
     el.style.background = `radial-gradient(circle,#fff 0%,${c.colStar} 50%,transparent 100%)`;
@@ -608,25 +620,30 @@ function loadRound() {
   const words = game.sentences[game.current];
   const shuffled = [...words].sort(()=>Math.random()-0.5);
 
+  const SW = stage.offsetWidth || 800;
+  const SH = stage.offsetHeight || 450;
   const cols = Math.min(3, shuffled.length);
   const rows = Math.ceil(shuffled.length/cols);
-  const mX=80, mY=90;
-  const cW=(800-mX*2)/cols, cH=(450-mY-50)/rows;
+  const mX = SW*0.08, mY = SH*0.18;
+  const cW = (SW - mX*2)/cols, cH = (SH - mY - SH*0.08)/rows;
 
   shuffled.forEach((word, idx) => {
     const col=idx%cols, row=Math.floor(idx/cols);
-    const jx=(Math.random()-0.5)*60, jy=(Math.random()-0.5)*35;
+    const jx=(Math.random()-0.5)*SW*0.06, jy=(Math.random()-0.5)*SH*0.06;
     const x = mX + col*cW + cW/2 - 50 + jx;
     const y = mY + row*cH + cH/2 - 25 + jy;
 
     const tab = document.createElement('div');
     tab.className = 's-tablet';
     tab.style.left = x+'px'; tab.style.top = y+'px';
-    tab.style.background = c.colTabBg;
+    const op7 = (c.tabOpacity/100).toFixed(2);
+    const hex7 = c.colTabBg;
+    const r7=parseInt(hex7.slice(1,3),16), g7=parseInt(hex7.slice(3,5),16), b7=parseInt(hex7.slice(5,7),16);
+    tab.style.background = `rgba(${r7},${g7},${b7},${op7})`;
     tab.style.color = c.colTabTxt;
     tab.style.borderColor = c.colTabBd+'66';
     tab.style.fontSize = c.tabSize+'px';
-    tab.innerHTML = `<div class="word-label" style="font-size:${c.tabSize}px">${word}</div><div class="s-star" style="background:radial-gradient(circle,#fff 0%,${c.colStar} 50%,transparent 100%)"></div>`;
+    tab.innerHTML = `<div class="word-label" style="font-size:${c.tabSize}px;color:${c.colTabTxt};text-shadow:0 0 8px ${c.colTabTxt}88">${word}</div><div class="s-star" style="background:radial-gradient(circle,#fff 0%,${c.colStar} 50%,transparent 100%)"></div>`;
     layer.appendChild(tab);
 
     game.coins.push({
@@ -825,6 +842,7 @@ function generateCode() {
     cursorSize: document.getElementById('inp-cursorsize').value,
     colBgStar: document.getElementById('col-bgstar').value,
     colTabBg: document.getElementById('col-tab-bg').value,
+    tabOpacity: parseInt(document.getElementById('inp-tab-opacity')?.value ?? 85),
     colTabTxt: document.getElementById('col-tab-txt').value,
     colTabBd: document.getElementById('col-tab-bd').value,
     colStar: document.getElementById('col-star').value,
@@ -839,6 +857,7 @@ function generateCode() {
     sErr: document.getElementById('s-err').value,
     sLevel: document.getElementById('s-level').value,
     sWin: document.getElementById('snd-win').value,
+    tabOpacity: document.getElementById('inp-tab-opacity')?.value || 85,
     particles: document.getElementById('sel-particles')?.value || 'stars',
     transparent: document.getElementById('chk-transparent')?.checked || false,
   };
@@ -901,7 +920,7 @@ function initFromUrl() {
       artifactLbl:'lbl-artifact', winTitle:'lbl-win-title',
       winText:'lbl-win-text', againLbl:'lbl-again',
       sOk:'s-ok', sErr:'s-err', sLevel:'s-level', sWin:'snd-win',
-      particles:'sel-particles'
+      tabOpacity:'inp-tab-opacity', particles:'sel-particles'
     };
     Object.entries(map).forEach(([k,id]) => {
       const el = document.getElementById(id);
