@@ -179,16 +179,30 @@ input[type=range]{width:100%;accent-color:var(--acc)}
     </div>
   </div>
 
-<h2>🌠 ВИЗУАЛ</h2>
+  <h2>🌠 ВИЗУАЛ</h2>
   <div class="box">
     <div class="ui-grid">
-      <div class="ui-item"><label>Фон (URL)</label><input type="text" id="inp-bg" value="" oninput="startPreview()"></div>
-      <div class="ui-item"><label>Звёзд на фоне</label><input type="range" id="inp-starcount" min="30" max="300" value="120" oninput="startPreview()"></div>
-      <div class="ui-item"><label>Размер шрифта</label><input type="range" id="inp-tabsize" min="10" max="32" value="16" oninput="startPreview()"></div>
-      <div class="ui-item"><label>Размер курсора</label><input type="range" id="inp-cursorsize" min="24" max="80" value="48" oninput="startPreview()"></div>
+      <div class="ui-item"><label>Фон (URL)</label><input type="text" id="inp-bg" value="" oninput="liveStyle()"></div>
+      <div class="ui-item"><label>Иконка старта (URL)</label><input type="text" id="inp-icon" value="" placeholder="URL картинки или оставь пустым ✦" oninput="updateStartIcon()"></div>
+      <div class="ui-item"><label>Звёзд на фоне</label><input type="range" id="inp-starcount" min="30" max="300" value="120" oninput="drawBgStars()"></div>
+      <div class="ui-item"><label>Размер шрифта</label><input type="range" id="inp-tabsize" min="10" max="32" value="16" oninput="liveStyle()"></div>
+      <div class="ui-item"><label>Размер курсора</label><input type="range" id="inp-cursorsize" min="24" max="80" value="48" oninput="liveStyle()"></div>
     </div>
   </div>
 
+  <h2>🎨 ЦВЕТА</h2>
+  <div class="box">
+    <div class="ui-grid">
+      <div class="ui-item"><label>Цвет звёзд фона</label><input type="color" id="col-bgstar" value="#ffffff" oninput="drawBgStars()"></div>
+      <div class="ui-item"><label>Цвет таблички</label><input type="color" id="col-tab-bg" value="#0f172a" oninput="liveStyle()"></div>
+      <div class="ui-item"><label>Текст таблички</label><input type="color" id="col-tab-txt" value="#e2e8f0" oninput="liveStyle()"></div>
+      <div class="ui-item"><label>Рамка таблички</label><input type="color" id="col-tab-bd" value="#a78bfa" oninput="liveStyle()"></div>
+      <div class="ui-item"><label>Звезда-ответ</label><input type="color" id="col-star" value="#a78bfa" oninput="liveStyle()"></div>
+      <div class="ui-item"><label>Линия созвездия</label><input type="color" id="col-line" value="#a78bfa" oninput="liveStyle()"></div>
+      <div class="ui-item"><label>Слоты (обводка)</label><input type="color" id="col-slot" value="#a78bfa" oninput="liveStyle()"></div>
+      <div class="ui-item"><label>Цвет курсора</label><input type="color" id="col-cursor" value="#a78bfa" oninput="liveStyle()"></div>
+    </div>
+  </div>
 
   <h2>🎵 ЗВУКИ (URL)</h2>
   <div class="box">
