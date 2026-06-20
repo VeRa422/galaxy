@@ -69,7 +69,6 @@ input[type=range]{width:100%;accent-color:var(--acc)}
 }
 .s-tablet .word-label{
   color:rgba(167,139,250,0.75);
-  font-size:13px;
   font-family:'Nunito',sans-serif;
   font-weight:700;
   letter-spacing:1px;
@@ -184,7 +183,7 @@ input[type=range]{width:100%;accent-color:var(--acc)}
     <div class="ui-grid">
       <div class="ui-item"><label>Фон (URL)</label><input type="text" id="inp-bg" value="" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Иконка старта (URL)</label><input type="text" id="inp-icon" value="" placeholder="URL картинки или оставь пустым ✦" oninput="updateStartIcon()"></div>
-      <div class="ui-item"><label>Звёзд на фоне</label><input type="range" id="inp-starcount" min="30" max="300" value="120" oninput="drawBgStars()"></div>
+      <div class="ui-item"><label>Звёзд на фоне</label><input type="range" id="inp-starcount" min="30" max="300" value="120" oninput="generateBgStars(); reinitDebounced()"></div>
       <div class="ui-item"><label>Размер шрифта</label><input type="range" id="inp-tabsize" min="10" max="32" value="16" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Размер курсора</label><input type="range" id="inp-cursorsize" min="24" max="80" value="48" oninput="liveStyle()"></div>
     </div>
@@ -193,7 +192,7 @@ input[type=range]{width:100%;accent-color:var(--acc)}
   <h2>🎨 ЦВЕТА</h2>
   <div class="box">
     <div class="ui-grid">
-      <div class="ui-item"><label>Цвет звёзд фона</label><input type="color" id="col-bgstar" value="#ffffff" oninput="drawBgStars()"></div>
+      <div class="ui-item"><label>Цвет звёзд фона</label><input type="color" id="col-bgstar" value="#ffffff" oninput="generateBgStars(); reinitDebounced()"></div>
       <div class="ui-item"><label>Цвет таблички</label><input type="color" id="col-tab-bg" value="#0f172a" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Текст таблички</label><input type="color" id="col-tab-txt" value="#e2e8f0" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Рамка таблички</label><input type="color" id="col-tab-bd" value="#a78bfa" oninput="liveStyle()"></div>
@@ -313,6 +312,9 @@ let reinitTimer = null;
 function scheduleReinit() {
   if (game.active) { clearTimeout(reinitTimer); reinitTimer = setTimeout(startPreview, 400); }
 }
+function reinitDebounced() {
+  clearTimeout(reinitTimer); reinitTimer = setTimeout(() => { if(game.active) applyStyle(); }, 350);
+}
 
 // ── BG STARS ─────────────────────────────────────────────────────
 const bgCanvas = document.getElementById('bg-canvas');
@@ -321,8 +323,9 @@ let bgStars = [];
 
 function generateBgStars() {
   const count = parseInt(document.getElementById('inp-starcount').value)||120;
+  const W = bgCanvas.width || 800, H = bgCanvas.height || 450;
   bgStars = Array.from({length: count}, () => ({
-    x: Math.random()*800, y: Math.random()*450,
+    x: Math.random()*W, y: Math.random()*H,
     r: Math.random()*1.5+0.3,
     opacity: Math.random()*0.7+0.3,
     twinkleSpeed: Math.random()*0.02+0.005,
@@ -331,25 +334,23 @@ function generateBgStars() {
 }
 
 function drawBgStars() {
-  const starCount = document.getElementById('inp-starcount').value;
-  const bgStarColor = document.getElementById('col-bgstar').value;
-  
-  const canvas = document.getElementById('bg-canvas');
-  if (!canvas) return; // если канвас еще не создан, прерываем
-  const ctx = canvas.getContext('2d');
-  
-  // Очищаем старые звезды
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  
-  // Рисуем новые звезды синхронно
-  ctx.fillStyle = bgStarColor;
-  for (let i = 0; i < starCount; i++) {
-    const x = Math.random() * canvas.width;
-    const y = Math.random() * canvas.height;
-    const r = Math.random() * 1.5; // размер звездочек
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
+  const bgUrl = document.getElementById('inp-bg').value;
+  const color = document.getElementById('col-bgstar').value;
+  bgCtx.clearRect(0,0,800,450);
+
+  if (bgUrl) {
+    const img = new Image();
+    img.onload = () => { bgCtx.drawImage(img,0,0,800,450); drawStarsOnBg(color); };
+    img.src = bgUrl;
+  } else {
+    // Deep space gradient
+    const grad = bgCtx.createRadialGradient(400,225,0,400,225,450);
+    grad.addColorStop(0,'#0a0f1e');
+    grad.addColorStop(0.5,'#020617');
+    grad.addColorStop(1,'#000005');
+    bgCtx.fillStyle = grad;
+    bgCtx.fillRect(0,0,800,450);
+    drawStarsOnBg(color);
   }
 }
 
@@ -370,11 +371,12 @@ function animateBgStars() {
   twinkleFrame++;
   const color = document.getElementById('col-bgstar').value;
   const bgUrl = document.getElementById('inp-bg').value;
+  const W = bgCanvas.width || 800, H = bgCanvas.height || 450;
   if (!bgUrl) {
-    bgCtx.clearRect(0,0,800,450);
-    const grad = bgCtx.createRadialGradient(400,225,0,400,225,450);
+    bgCtx.clearRect(0,0,W,H);
+    const grad = bgCtx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H));
     grad.addColorStop(0,'#0a0f1e'); grad.addColorStop(0.5,'#020617'); grad.addColorStop(1,'#000005');
-    bgCtx.fillStyle = grad; bgCtx.fillRect(0,0,800,450);
+    bgCtx.fillStyle = grad; bgCtx.fillRect(0,0,W,H);
   }
   bgStars.forEach(s => {
     const tw = 0.5 + 0.5*Math.sin(twinkleFrame*s.twinkleSpeed + s.twinklePhase);
@@ -447,6 +449,9 @@ function liveStyle() {
     el.style.borderColor = c.colTabBd+'66';
     el.style.fontSize = c.tabSize+'px';
   });
+  document.querySelectorAll('.word-label').forEach(el => {
+    el.style.fontSize = c.tabSize+'px';
+  });
   document.querySelectorAll('.s-star').forEach(el => {
     el.style.background = `radial-gradient(circle,#fff 0%,${c.colStar} 50%,transparent 100%)`;
   });
@@ -460,16 +465,10 @@ function liveStyle() {
     document.getElementById('s-level-txt').textContent =
       `${c.artifactLbl} ${game.current+1} ${c.ofLbl} ${game.sentences.length}`;
   }
-  // ДОБАВЬ ВОТ ЭТИ СТРОКИ:
-  const tabSize = document.getElementById('inp-tabsize').value;
-  // Находим все созданные слова на экране и меняем им шрифт
-  const wordLabels = document.querySelectorAll('.word-label');
-  wordLabels.forEach(lbl => {
-    lbl.style.fontSize = tabSize + 'px';
-  });
 }
 
 function startPreview() {
+  // Полный сброс — вызывается только кнопкой
   game.sentences = getSentences().map(s => s.split(/\s+/).filter(w=>w.length>0));
   if (!game.sentences.length) return alert('Добавьте хотя бы одну фразу!');
   game.active = true; game.current = 0; game.transitioning = false;
@@ -479,6 +478,11 @@ function startPreview() {
   buildSlots();
   loadRound();
   ['ok','err','level','win'].forEach(k => loadAudio(k, document.getElementById(k==='win'?'snd-win':'s-'+k).value));
+}
+
+function applyStyle() {
+  // Только стили — без сброса прогресса, вызывается бегунками
+  liveStyle();
 }
 
 function buildSlots() {
@@ -522,7 +526,7 @@ function loadRound() {
     tab.style.color = c.colTabTxt;
     tab.style.borderColor = c.colTabBd+'66';
     tab.style.fontSize = c.tabSize+'px';
-    tab.innerHTML = `<div class="word-label">${word}</div><div class="s-star" style="background:radial-gradient(circle,#fff 0%,${c.colStar} 50%,transparent 100%)"></div>`;
+    tab.innerHTML = `<div class="word-label" style="font-size:${c.tabSize}px">${word}</div><div class="s-star" style="background:radial-gradient(circle,#fff 0%,${c.colStar} 50%,transparent 100%)"></div>`;
     layer.appendChild(tab);
 
     game.coins.push({
