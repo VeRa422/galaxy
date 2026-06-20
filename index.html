@@ -171,11 +171,11 @@ input[type=range]{width:100%;accent-color:var(--acc)}
   <div class="box">
     <div class="ui-grid">
       <div class="ui-item"><label>Созвездие</label><input type="text" id="lbl-artifact" value="Созвездие" oninput="liveStyle()"></div>
-      <div class="ui-item"><label>из</label><input type="text" id="lbl-of" value="из" oninput="liveStyle()"></div>
+
       <div class="ui-item"><label>Заголовок победы</label><input type="text" id="lbl-win-title" value="КАРТА НЕБЕС ОТКРЫТА!" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Текст победы</label><input type="text" id="lbl-win-text" value="Все созвездия найдены!" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Ещё раз</label><input type="text" id="lbl-again" value="Снова в небо" oninput="liveStyle()"></div>
-      <div class="ui-item"><label>Перемешать</label><input type="text" id="lbl-shuffle" value="Перемешать" oninput="liveStyle()"></div>
+
     </div>
   </div>
 
@@ -209,7 +209,7 @@ input[type=range]{width:100%;accent-color:var(--acc)}
       <div class="ui-item"><label>Верно</label><input type="text" id="s-ok" value="" oninput="loadAudio('ok',this.value)"></div>
       <div class="ui-item"><label>Ошибка</label><input type="text" id="s-err" value="" oninput="loadAudio('err',this.value)"></div>
       <div class="ui-item"><label>Уровень пройден</label><input type="text" id="s-level" value="" oninput="loadAudio('level',this.value)"></div>
-      <div class="ui-item"><label>Победа</label><input type="text" id="s-win" value="" oninput="loadAudio('win',this.value)"></div>
+      <div class="ui-item"><label>Победа</label><input type="text" id="snd-win" value="" oninput="loadAudio('win',this.value)"></div>
     </div>
   </div>
 
@@ -245,6 +245,14 @@ input[type=range]{width:100%;accent-color:var(--acc)}
     </div>
     <div id="words-layer"></div>
     <div class="s-flash" id="s-flash"></div>
+    <div id="s-start" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:1000;background:rgba(2,6,23,0.7)">
+      <div style="text-align:center">
+        <div style="font-size:52px;margin-bottom:12px;filter:drop-shadow(0 0 20px #a78bfa)">✦</div>
+        <h2 id="s-start-title" style="font-family:'Chakra Petch';font-size:1.6rem;color:#a78bfa;margin-bottom:8px;text-shadow:0 0 20px #7c3aed">СОЗВЕЗДИЯ</h2>
+        <p style="color:#94a3b8;font-size:13px;margin-bottom:20px">Соедини слова в правильном порядке</p>
+        <button onclick="startPreview()" style="padding:12px 28px;background:linear-gradient(135deg,#7c3aed,#a78bfa);border:none;font-family:'Chakra Petch';font-weight:bold;color:#fff;border-radius:6px;cursor:pointer;font-size:14px">НАЧАТЬ ✦</button>
+      </div>
+    </div>
     <div class="s-win" id="s-win">
       <div class="s-win-box">
         <div style="font-size:48px;margin-bottom:8px">✦</div>
@@ -401,7 +409,6 @@ function getCfg() {
     colSlot: document.getElementById('col-slot').value,
     colCursor: document.getElementById('col-cursor').value,
     artifactLbl: document.getElementById('lbl-artifact').value,
-    ofLbl: document.getElementById('lbl-of').value,
     winTitle: document.getElementById('lbl-win-title').value,
     winText: document.getElementById('lbl-win-text').value,
     againLbl: document.getElementById('lbl-again').value,
@@ -444,10 +451,11 @@ function startPreview() {
   if (!game.sentences.length) return alert('Добавьте хотя бы одну фразу!');
   game.active = true; game.current = 0; game.transitioning = false;
   document.getElementById('s-win').style.display = 'none';
+  const startEl = document.getElementById('s-start'); if(startEl) startEl.style.display='none';
   liveStyle();
   buildSlots();
   loadRound();
-  ['ok','err','level','win'].forEach(k => loadAudio(k, document.getElementById('s-'+k).value));
+  ['ok','err','level','win'].forEach(k => loadAudio(k, document.getElementById(k==='win'?'snd-win':'s-'+k).value));
 }
 
 function buildSlots() {
@@ -519,7 +527,9 @@ function checkCollisions() {
   const c = getCfg();
   const r = stage.getBoundingClientRect();
   game.coins.forEach(coin => {
-    // coords updated in draw()
+    const rect = coin.el.getBoundingClientRect();
+    coin.x = rect.left + rect.width/2 - r.left;
+    coin.y = rect.top  + rect.height/2 - r.top;
     const dist = Math.hypot(game.mx-coin.x, game.my-coin.y);
 
     if (dist<70 && !coin.collected) coin.parentTab.classList.add('hovered');
@@ -584,87 +594,100 @@ function animateToSlot(lastCoin) {
 
 // ── DRAW LOOP — connection lines ───────────────────────────────────
 function draw() {
-  // Синхронизируем размер canvas с реальным размером stage
   const r = stage.getBoundingClientRect();
-  if (canvas.width !== Math.round(r.width) || canvas.height !== Math.round(r.height)) {
-    canvas.width = Math.round(r.width);
-    canvas.height = Math.round(r.height);
-  }
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  if (!game.active) { requestAnimationFrame(draw); return; }
-  const c = getCfg();
+  // canvas всегда точно по размеру stage
+  canvas.width  = r.width  || 800;
+  canvas.height = r.height || 450;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Координаты прямо в пикселях stage (без пересчёта)
+  if (!game.active) { requestAnimationFrame(draw); return; }
+
+  const colLine = document.getElementById('col-line').value || '#a78bfa';
+
+  // Обновляем координаты звёзд
   game.coins.forEach(coin => {
     const rect = coin.el.getBoundingClientRect();
-    coin.x = rect.left + rect.width/2 - r.left;
+    coin.x = rect.left + rect.width/2  - r.left;
     coin.y = rect.top  + rect.height/2 - r.top;
   });
 
-  const collected = game.coins.filter(c2=>c2.collected).sort((a,b)=>a.targetIdx-b.targetIdx);
-  // Всегда рисуем линию от последней собранной (или от курсора) к курсору
-  const drawPoints = [...collected];
+  const collected = game.coins
+    .filter(c => c.collected)
+    .sort((a, b) => a.targetIdx - b.targetIdx);
 
-  if (drawPoints.length > 0 && !game.transitioning) {
-    // Пунктирная подложка
-    ctx.setLineDash([6,4]);
-    ctx.beginPath();
-    ctx.moveTo(drawPoints[0].x, drawPoints[0].y);
-    for (let i=1;i<drawPoints.length;i++) ctx.lineTo(drawPoints[i].x, drawPoints[i].y);
-    ctx.lineTo(game.mx, game.my);
-    ctx.strokeStyle = c.colLine+'55';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    ctx.setLineDash([]);
+  // Линия: собранные звёзды → курсор
+  const pts = [...collected];
 
-    // Светящаяся сплошная линия
+  // Точки для рисования линии:
+  // - во время игры: собранные звёзды + курсор
+  // - при завершении уровня (transitioning): только собранные звёзды (созвездие остаётся!)
+  const linePts = game.transitioning
+    ? pts.map(c => ({x: c.x, y: c.y}))
+    : pts.length > 0
+      ? [...pts.map(c => ({x: c.x, y: c.y})), {x: game.mx, y: game.my}]
+      : null;
+
+  if (linePts && linePts.length >= 2) {
+    // пунктир
+    ctx.save();
+    ctx.setLineDash([8, 5]);
     ctx.beginPath();
-    ctx.moveTo(drawPoints[0].x, drawPoints[0].y);
-    for (let i=1;i<drawPoints.length;i++) ctx.lineTo(drawPoints[i].x, drawPoints[i].y);
-    ctx.lineTo(game.mx, game.my);
-    ctx.strokeStyle = c.colLine;
+    ctx.moveTo(linePts[0].x, linePts[0].y);
+    for (let i = 1; i < linePts.length; i++) ctx.lineTo(linePts[i].x, linePts[i].y);
+    ctx.strokeStyle = colLine + '66';
     ctx.lineWidth = 2;
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = c.colLine;
     ctx.stroke();
-    ctx.shadowBlur = 0;
+    ctx.restore();
 
-    // Draw collected star dots on line
-    collected.forEach((coin, i) => {
-      // Outer glow
-      ctx.beginPath();
-      ctx.arc(coin.x, coin.y, 9, 0, Math.PI*2);
-      ctx.fillStyle = c.colLine + '44';
-      ctx.fill();
-      // Inner star
-      ctx.beginPath();
-      ctx.arc(coin.x, coin.y, 5, 0, Math.PI*2);
-      ctx.fillStyle = '#fff';
-      ctx.shadowBlur = 16;
-      ctx.shadowColor = c.colLine;
-      ctx.fill();
-      // Number label
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = c.colLine;
-      ctx.font = 'bold 10px Nunito';
-      ctx.textAlign = 'center';
-      ctx.fillText(i+1, coin.x, coin.y - 14);
-    });
-    // Draw current cursor star
-    if (!game.transitioning) {
-      ctx.beginPath();
-      ctx.arc(game.mx, game.my, 4, 0, Math.PI*2);
-      ctx.fillStyle = c.colLine + 'aa';
-      ctx.shadowBlur = 8;
-      ctx.shadowColor = c.colLine;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    }
+    // свечение
+    ctx.save();
+    ctx.shadowColor = colLine;
+    ctx.shadowBlur = 14;
+    ctx.beginPath();
+    ctx.moveTo(linePts[0].x, linePts[0].y);
+    for (let i = 1; i < linePts.length; i++) ctx.lineTo(linePts[i].x, linePts[i].y);
+    ctx.strokeStyle = colLine;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.restore();
   }
+
+  // Точки на собранных звёздах
+  collected.forEach((coin, i) => {
+    ctx.save();
+    ctx.shadowColor = colLine;
+    ctx.shadowBlur = 20;
+    ctx.beginPath();
+    ctx.arc(coin.x, coin.y, 6, 0, Math.PI*2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.restore();
+
+    // Номер
+    ctx.save();
+    ctx.fillStyle = colLine;
+    ctx.font = 'bold 11px Nunito, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(i + 1, coin.x, coin.y - 12);
+    ctx.restore();
+  });
+
+  // Точка под курсором
+  if (game.active && !game.transitioning) {
+    ctx.save();
+    ctx.shadowColor = colLine;
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(game.mx, game.my, 5, 0, Math.PI*2);
+    ctx.fillStyle = colLine + 'cc';
+    ctx.fill();
+    ctx.restore();
+  }
+
   requestAnimationFrame(draw);
 }
 
-// ── GENERATE CODE ─────────────────────────────────────────────────
+
 let finalCode = '';
 function generateCode() {
   const data = {
@@ -682,14 +705,13 @@ function generateCode() {
     colSlot: document.getElementById('col-slot').value,
     colCursor: document.getElementById('col-cursor').value,
     artifactLbl: document.getElementById('lbl-artifact').value,
-    ofLbl: document.getElementById('lbl-of').value,
     winTitle: document.getElementById('lbl-win-title').value,
     winText: document.getElementById('lbl-win-text').value,
     againLbl: document.getElementById('lbl-again').value,
     sOk: document.getElementById('s-ok').value,
     sErr: document.getElementById('s-err').value,
     sLevel: document.getElementById('s-level').value,
-    sWin: document.getElementById('s-win').value,
+    sWin: document.getElementById('snd-win').value,
   };
   const dataStr = btoa(encodeURIComponent(JSON.stringify(data)));
   const baseUrl = window.location.href.split('?')[0];
@@ -721,13 +743,13 @@ function initFromUrl() {
       bgUrl:'inp-bg', starcount:'inp-starcount', tabSize:'inp-tabsize', cursorSize:'inp-cursorsize',
       colBgStar:'col-bgstar', colTabBg:'col-tab-bg', colTabTxt:'col-tab-txt', colTabBd:'col-tab-bd',
       colStar:'col-star', colLine:'col-line', colSlot:'col-slot', colCursor:'col-cursor',
-      artifactLbl:'lbl-artifact', ofLbl:'lbl-of', winTitle:'lbl-win-title', winText:'lbl-win-text', againLbl:'lbl-again',
-      sOk:'s-ok', sErr:'s-err', sLevel:'s-level', sWin:'s-win'
+      artifactLbl:'lbl-artifact', winTitle:'lbl-win-title', winText:'lbl-win-text', againLbl:'lbl-again',
+      sOk:'s-ok', sErr:'s-err', sLevel:'s-level', sWin:'snd-win'
     };
     Object.entries(map).forEach(([k,id])=>{ if(d[k]!==undefined) document.getElementById(id).value=d[k]; });
 
     document.addEventListener('pointermove', function _init() {
-      ['ok','err','level','win'].forEach(k=>loadAudio(k, document.getElementById('s-'+k).value));
+      ['ok','err','level','win'].forEach(k=>loadAudio(k, document.getElementById(k==='win'?'snd-win':'s-'+k).value));
       document.removeEventListener('pointermove', _init);
     },{once:true});
 
@@ -749,6 +771,7 @@ drawBgStars();
 animateBgStars();
 liveStyle();
 initFromUrl();
+draw(); // запускаем игровой цикл рисования
 </script>
 </body>
 </html>
