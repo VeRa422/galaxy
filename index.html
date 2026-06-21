@@ -3,34 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <title>СОЗВЕЗДИЯ — Редактор</title>
-<script>if(window.location.search.includes('data=')) document.documentElement.classList.add('embed-mode');</script>
+<script>if(window.location.search.includes('data='))document.documentElement.classList.add('embed-mode');</script>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;700&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
 <style>
-/* ── EMBED MODE — полностью переопределяем layout ── */
 .embed-mode #editor { display: none !important; }
-.embed-mode body {
-  display: block !important;
-  width: 100% !important; height: 100% !important;
-  margin: 0 !important; padding: 0 !important;
-  overflow: hidden !important;
-  background: transparent !important;
-}
-html.embed-mode {
-  width: 100%; height: 100%;
-}
-.embed-mode #stage-wrap {
-  display: block !important;
-  position: fixed !important;
-  top: 0 !important; left: 0 !important;
-  width: 100% !important; height: 100% !important;
-  background: transparent !important;
-  overflow: hidden !important;
-}
-.embed-mode #stage {
-  position: absolute !important;
-  top: 50% !important; left: 50% !important;
-  /* transform задаётся через JS в scaleStage() */
-}
+.embed-mode #stage-wrap { background: transparent !important; position: fixed !important;
+  top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; }
+.embed-mode body { margin: 0 !important; padding: 0 !important; overflow: hidden !important; background: transparent !important; }
+.embed-mode #stage { position: absolute !important; left: 50% !important; top: 50% !important; }
 
 :root {
   --bg: #020617; --pn: #0f172a; --bd: #1e293b;
@@ -74,8 +54,9 @@ input[type=range]{width:100%;accent-color:var(--acc)}
 /* ── STAGE ── */
 #stage-wrap{flex:1;display:flex;align-items:center;justify-content:center;background:#000;position:relative;overflow:hidden}
 #stage{position:relative;width:800px;height:450px;background:#020617;overflow:hidden;border-radius:0}
-/* bg-canvas прозрачный — фон рисуется либо градиентом на canvas, либо CSS background-image на #stage */
-#bg-canvas{position:absolute;top:0;left:0;z-index:0;pointer-events:none;background:transparent}
+
+/* starfield bg canvas */
+#bg-canvas{position:absolute;top:0;left:0;z-index:0;pointer-events:none}
 #game-canvas{position:absolute;top:0;left:0;pointer-events:none;z-index:250}
 
 /* custom cursor — crosshair telescope */
@@ -189,7 +170,11 @@ input[type=range]{width:100%;accent-color:var(--acc)}
       Игрок наводит курсор на звёзды в <b>правильном порядке слов</b>, соединяя созвездие.
     </div>
     <div id="sentences-list"></div>
-    <button id="add-sentence-btn" onclick="addSentence()">✦ Добавить фразу</button>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:6px;margin-bottom:2px">
+    <input type="checkbox" id="chk-ordered" style="width:14px;height:14px;accent-color:#a78bfa;cursor:pointer">
+    <label for="chk-ordered" style="cursor:pointer;font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:1px">Строгий порядок фраз (без перемешивания)</label>
+  </div>
+  <button id="add-sentence-btn" onclick="addSentence()">✦ Добавить фразу</button>
   </div>
 
   <h2>✏️ ТЕКСТЫ</h2>
@@ -225,10 +210,6 @@ input[type=range]{width:100%;accent-color:var(--acc)}
         <label>Количество частиц</label>
         <input type="range" id="inp-particle-count" min="5" max="80" value="30" oninput="startParticles()">
       </div>
-      <div class="ui-item">
-        <label>Прозрачность эффектов</label>
-        <input type="range" id="inp-particle-opacity" min="5" max="100" value="100" oninput="startParticles()">
-      </div>
       <div class="ui-item" style="display:flex;align-items:center;gap:8px;padding-top:4px">
         <input type="checkbox" id="chk-transparent" onchange="liveStyle()" style="width:16px;height:16px;accent-color:#a78bfa;cursor:pointer">
         <label for="chk-transparent" style="cursor:pointer;font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:1px">Прозрачный фон (для Genially)</label>
@@ -237,7 +218,6 @@ input[type=range]{width:100%;accent-color:var(--acc)}
       <div class="ui-item"><label>Звёзд на фоне</label><input type="range" id="inp-starcount" min="30" max="300" value="120" oninput="generateBgStars(); reinitDebounced()"></div>
       <div class="ui-item"><label>Размер шрифта</label><input type="range" id="inp-tabsize" min="10" max="32" value="16" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Размер курсора</label><input type="range" id="inp-cursorsize" min="24" max="80" value="48" oninput="liveStyle()"></div>
-      <div class="ui-item"><label>Надпись «Созвездие N из M»</label><input type="text" id="lbl-level-tmpl" value="" placeholder="оставь пустым — скрыть надпись" oninput="liveStyle()"></div>
     </div>
   </div>
 
@@ -245,19 +225,9 @@ input[type=range]{width:100%;accent-color:var(--acc)}
   <div class="box">
     <div class="ui-grid">
       <div class="ui-item"><label>Цвет звёзд / частиц</label><input type="color" id="col-bgstar" value="#ffffff" oninput="generateBgStars(); reinitDebounced()"></div>
-      <div class="ui-item"><label>Подсветка эффектов</label><input type="color" id="col-particle-glow" value="#a78bfa" oninput="startParticles()"></div>
-      <div class="ui-item" style="display:flex;align-items:center;gap:8px">
-        <input type="checkbox" id="chk-particle-glow" checked onchange="startParticles()" style="width:16px;height:16px;accent-color:#a78bfa;cursor:pointer">
-        <label for="chk-particle-glow" style="cursor:pointer;font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:1px">Подсветка эффектов вкл</label>
-      </div>
       <div class="ui-item"><label>Цвет таблички</label><input type="color" id="col-tab-bg" value="#0f172a" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Прозрачность таблички</label><input type="range" id="inp-tab-opacity" min="0" max="100" value="85" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Текст таблички</label><input type="color" id="col-tab-txt" value="#e2e8f0" oninput="liveStyle()"></div>
-      <div class="ui-item" style="display:flex;align-items:center;gap:8px">
-        <input type="checkbox" id="chk-txt-glow" checked onchange="liveStyle()" style="width:16px;height:16px;accent-color:#a78bfa;cursor:pointer">
-        <label for="chk-txt-glow" style="cursor:pointer;font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:1px">Подсветка текста вкл</label>
-      </div>
-      <div class="ui-item"><label>Цвет подсветки текста</label><input type="color" id="col-txt-glow" value="#a78bfa" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Рамка таблички</label><input type="color" id="col-tab-bd" value="#a78bfa" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Звезда-ответ</label><input type="color" id="col-star" value="#a78bfa" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Линия созвездия</label><input type="color" id="col-line" value="#a78bfa" oninput="liveStyle()"></div>
@@ -276,16 +246,12 @@ input[type=range]{width:100%;accent-color:var(--acc)}
     </div>
   </div>
 
-
-
   <button class="btn btn-play" id="btn-preview" onclick="startPreview()">ЗАПУСТИТЬ ПРЕДПРОСМОТР ✦</button>
   <button class="btn btn-gen" onclick="generateCode()" style="margin-top:6px">ГЕНЕРИРОВАТЬ КОД ДЛЯ GENIALLY</button>
-  <button class="btn btn-copy" id="copy-btn" onclick="copyCode()">СКОПИРОВАТЬ 📋</button>
-  <div id="gen-msg" style="color:var(--ok);font-size:10px;text-align:center;margin-top:4px;display:none">✅ Код сгенерирован!</div>
-  <div id="copy-msg" style="color:var(--ok);font-size:10px;text-align:center;margin-top:4px;display:none">✅ Скопировано!</div>
   <div id="url-warning" style="display:none;margin-top:6px;padding:8px;background:rgba(239,68,68,0.15);border:1px solid #ef4444;border-radius:6px;font-size:11px;color:#fca5a5;line-height:1.5">
-    ⚠ Открыто локально. Загрузи этот файл на GitHub Pages или любой хостинг, открой по https:// и генерируй оттуда.
+    ⚠ Файл открыт локально. Для работы в Genially загрузите этот HTML-файл на GitHub Pages или другой хостинг, откройте его по https:// ссылке и генерируйте код оттуда.
   </div>
+  <button class="btn btn-copy" id="copy-btn" onclick="copyCode()">СКОПИРОВАТЬ 📋</button>
   <div id="gen-msg">✅ Код сгенерирован!</div>
 
   <div id="creator-credit">
@@ -323,7 +289,7 @@ input[type=range]{width:100%;accent-color:var(--acc)}
         </div>
         <h2 id="s-start-title" style="font-family:'Chakra Petch';font-size:2rem;color:#a78bfa;margin-bottom:12px;text-shadow:0 0 30px #7c3aed;letter-spacing:4px">СОЗВЕЗДИЯ</h2>
         <p style="color:#94a3b8;font-size:14px;margin-bottom:28px;line-height:1.6">Наводи курсор на звёзды<br>в правильном порядке слов</p>
-        <button onclick="startGame()" style="padding:14px 36px;background:linear-gradient(135deg,#7c3aed,#a78bfa);border:none;font-family:'Chakra Petch';font-weight:bold;color:#fff;border-radius:8px;cursor:pointer;font-size:15px;letter-spacing:2px;box-shadow:0 0 20px #7c3aed88">НАЧАТЬ</button>
+        <button onclick="startPreview()" style="padding:14px 36px;background:linear-gradient(135deg,#7c3aed,#a78bfa);border:none;font-family:'Chakra Petch';font-weight:bold;color:#fff;border-radius:8px;cursor:pointer;font-size:15px;letter-spacing:2px;box-shadow:0 0 20px #7c3aed88">НАЧАТЬ</button>
       </div>
     </div>
     <div class="s-win" id="s-win">
@@ -331,7 +297,7 @@ input[type=range]{width:100%;accent-color:var(--acc)}
         <div style="font-size:48px;margin-bottom:8px">✦</div>
         <h2 id="s-win-title">КАРТА НЕБЕС ОТКРЫТА!</h2>
         <p id="s-win-text">Все созвездия найдены!</p>
-        <button class="s-win-btn" onclick="restartToStart()" id="s-win-btn">Снова в небо</button>
+        <button class="s-win-btn" onclick="startPreview()" id="s-win-btn">Снова в небо</button>
       </div>
     </div>
   </div>
@@ -404,20 +370,48 @@ function generateBgStars() {
   }));
 }
 
+function drawBgStars() {
+  const bgUrl = document.getElementById('inp-bg').value;
+  const color = document.getElementById('col-bgstar').value;
+  bgCtx.clearRect(0,0,800,450);
 
+  if (bgUrl) {
+    const img = new Image();
+    img.onload = () => { bgCtx.drawImage(img,0,0,800,450); drawStarsOnBg(color); };
+    img.src = bgUrl;
+  } else {
+    // Deep space gradient
+    const grad = bgCtx.createRadialGradient(400,225,0,400,225,450);
+    grad.addColorStop(0,'#0a0f1e');
+    grad.addColorStop(0.5,'#020617');
+    grad.addColorStop(1,'#000005');
+    bgCtx.fillStyle = grad;
+    bgCtx.fillRect(0,0,800,450);
+    drawStarsOnBg(color);
+  }
+}
+
+function drawStarsOnBg(color) {
+  bgCtx.fillStyle = color;
+  bgStars.forEach(s => {
+    bgCtx.globalAlpha = s.opacity;
+    bgCtx.beginPath();
+    bgCtx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    bgCtx.fill();
+  });
+  bgCtx.globalAlpha = 1;
+}
 
 // Twinkle animation
 let twinkleFrame = 0;
 // ── PARTICLES SYSTEM ─────────────────────────────────────────────
 let _particleRAF = null;
 let _particles = [];
-let _particleLastTime = 0;
-
 const EMOJIS = {
   butterflies: ['🦋'],
   hearts:      ['❤️','🩷','🩵','💜'],
-  flowers:     ['🌸'],
-  balloons:    ['🎈'],
+  flowers:     ['🌸','🌺','🌼','🌻'],
+  balloons:    ['🎈','🎀','🎊'],
 };
 // canvas-drawn types
 const CANVAS_TYPES = ['stars','sparks','bubbles'];
@@ -432,20 +426,13 @@ function startParticles() {
   _runParticles(type);
 }
 
-function _runParticles(type, now) {
+function _runParticles(type) {
   const pCv = document.getElementById('particle-canvas');
   if (!pCv) return;
   const ctx = pCv.getContext('2d');
   const W = 800;
   const H = 450;
   const count = parseInt(document.getElementById('inp-particle-count')?.value || 30);
-  const particleOpacity = (parseInt(document.getElementById('inp-particle-opacity')?.value || 100)) / 100;
-  const glowEnabled = document.getElementById('chk-particle-glow')?.checked !== false;
-  const glowColor = document.getElementById('col-particle-glow')?.value || '#a78bfa';
-
-  // Delta time — нормализовано к 60fps. Ограничиваем чтобы не было скачков при потере фокуса
-  const dt = Math.min((now - (_particleLastTime || now)) / (1000/60), 3);
-  _particleLastTime = now;
 
   // Spawn new particles
   const starParticles = _particles.filter(p => p.twinkleSpeed !== undefined);
@@ -459,8 +446,7 @@ function _runParticles(type, now) {
         _particles.push({
           x: Math.random() * W, y: Math.random() * H,
           size: 0.5 + Math.random() * 2,
-          life: 1, decay: 0,
-          opacity: 0.4 + Math.random() * 0.6,
+          life: Math.random(), decay: 0,
           twinkleSpeed: 0.02 + Math.random() * 0.03,
           twinklePhase: Math.random() * Math.PI * 2,
           color: ['#ffffff','#e2e8f0','#c4b5fd','#a78bfa'][Math.floor(Math.random()*4)]
@@ -480,12 +466,9 @@ function _runParticles(type, now) {
       } else if (type === 'sparks') {
         _particles.push({
           x: Math.random() * W, y: Math.random() * H,
-          vx: 0, vy: 0,
-          size: 1.5 + Math.random() * 3,
-          life: 1, decay: 0,
-          twinkleSpeed: 0.03 + Math.random() * 0.06,
-          twinklePhase: Math.random() * Math.PI * 2,
-          opacity: 0.4 + Math.random() * 0.6,
+          vx: (Math.random()-0.5)*3, vy: (Math.random()-0.5)*3,
+          size: 1 + Math.random() * 3,
+          life: 1, decay: 0.015 + Math.random()*0.02,
           color: ['#a78bfa','#c4b5fd','#e879f9','#fff'][Math.floor(Math.random()*4)]
         });
       } else if (type === 'bubbles') {
@@ -506,35 +489,16 @@ function _runParticles(type, now) {
   _particles = _particles.filter(p => p.twinkleSpeed !== undefined || (p.life > 0 && p.y > -50));
 
   _particles.forEach(p => {
-    if (p.twinkleSpeed !== undefined) {
-      p.twinklePhase += p.twinkleSpeed * dt;
-      const tw = 0.5 + 0.5 * Math.sin(p.twinklePhase);
-      ctx.save();
-      ctx.globalAlpha = p.opacity * (0.4 + 0.6 * tw) * particleOpacity;
-      if (p.color && p.color !== (document.getElementById('col-bgstar')?.value||'#ffffff')) {
-        // Искра — цветная, с подсветкой
-        if (glowEnabled) { ctx.shadowBlur = 8; ctx.shadowColor = glowColor; }
-        ctx.fillStyle = p.color;
-      } else {
-        ctx.fillStyle = document.getElementById('col-bgstar')?.value || '#ffffff';
-      }
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size * (0.7 + 0.3 * tw), 0, Math.PI*2);
-      ctx.fill();
-      ctx.restore();
-      return;
-    }
-    p.x += p.vx * dt; p.y += p.vy * dt; p.life -= p.decay * dt;
+    p.x += p.vx; p.y += p.vy; p.life -= p.decay;
     ctx.save();
-    ctx.globalAlpha = Math.max(0, p.life) * particleOpacity;
+    ctx.globalAlpha = Math.max(0, p.life);
     if (p.emoji) {
       ctx.font = `${p.size}px serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      if (glowEnabled) { ctx.shadowBlur = 12; ctx.shadowColor = glowColor; }
       ctx.fillText(p.emoji, p.x, p.y);
     } else if (type === 'sparks') {
-      if (glowEnabled) { ctx.shadowBlur = 10; ctx.shadowColor = glowColor; }
+      ctx.shadowBlur = 10; ctx.shadowColor = p.color;
       ctx.fillStyle = p.color;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI*2);
@@ -542,10 +506,11 @@ function _runParticles(type, now) {
     } else if (type === 'bubbles') {
       ctx.strokeStyle = p.color;
       ctx.lineWidth = 1.5;
-      if (glowEnabled) { ctx.shadowBlur = 6; ctx.shadowColor = glowColor; }
+      ctx.shadowBlur = 6; ctx.shadowColor = p.color;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
       ctx.stroke();
+      // Блик
       ctx.fillStyle = 'rgba(255,255,255,0.15)';
       ctx.beginPath();
       ctx.arc(p.x - p.size*0.3, p.y - p.size*0.3, p.size*0.25, 0, Math.PI*2);
@@ -554,48 +519,21 @@ function _runParticles(type, now) {
     ctx.restore();
   });
 
-  _particleRAF = requestAnimationFrame((now) => _runParticles(type, now));
+  _particleRAF = requestAnimationFrame(() => _runParticles(type));
 }
 
-
-// Кеш фонового изображения
-let _bgImg = null;
-let _bgImgUrl = '';
-
-function applyBgUrl(url) {
-  const stg = document.getElementById('stage');
-  if (!stg) return;
-  const transp = document.getElementById('chk-transparent')?.checked;
-  if (url) {
-    stg.style.backgroundImage = `url("${url}")`;
-    stg.style.backgroundSize = 'cover';
-    stg.style.backgroundPosition = 'center';
-    stg.style.backgroundRepeat = 'no-repeat';
-    stg.style.backgroundColor = 'transparent';
-  } else {
-    stg.style.backgroundImage = '';
-    stg.style.backgroundSize = '';
-    stg.style.backgroundPosition = '';
-    stg.style.backgroundRepeat = '';
-    stg.style.backgroundColor = transp ? 'transparent' : '#020617';
-  }
-}
 
 function animateBgStars() {
   twinkleFrame++;
   const color = document.getElementById('col-bgstar').value;
-  const bgUrl = document.getElementById('inp-bg').value.trim();
+  const bgUrl = document.getElementById('inp-bg').value;
   const W = 800, H = 450;
   bgCtx.clearRect(0,0,W,H);
-
-  // Если нет картинки — рисуем тёмный градиент (фон stage прозрачный)
   if (!bgUrl && !window._transparentBg) {
     const grad = bgCtx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H));
     grad.addColorStop(0,'#0a0f1e'); grad.addColorStop(0.5,'#020617'); grad.addColorStop(1,'#000005');
     bgCtx.fillStyle = grad; bgCtx.fillRect(0,0,W,H);
   }
-
-  // Звёзды поверх
   bgStars.forEach(s => {
     const tw = 0.5 + 0.5*Math.sin(twinkleFrame*s.twinkleSpeed + s.twinklePhase);
     bgCtx.globalAlpha = s.opacity * (0.4 + 0.6*tw);
@@ -654,10 +592,11 @@ function updateStartIcon() {
 
 function liveStyle() {
   const c = getCfg();
-  // Прозрачный фон + фоновое изображение через CSS
+  // Прозрачный фон
   const transp = document.getElementById('chk-transparent')?.checked;
+  stage.style.background = transp ? 'transparent' : '#020617';
   window._transparentBg = !!transp;
-  applyBgUrl(document.getElementById('inp-bg').value.trim());
+  animateBgStars(); // перерисовать фон
   cursor.style.width = c.cursorSize+'px';
   cursor.style.height = c.cursorSize+'px';
   // Update cursor SVG color
@@ -678,14 +617,8 @@ function liveStyle() {
   document.querySelectorAll('.word-label').forEach(el => {
     el.style.fontSize = c.tabSize+'px';
     el.style.color = c.colTabTxt;
-    const txtGlow = document.getElementById('chk-txt-glow')?.checked !== false;
-    const txtGlowColor = document.getElementById('col-txt-glow')?.value || c.colTabTxt;
-    el.style.textShadow = txtGlow ? `0 0 10px ${txtGlowColor}, 0 0 20px ${txtGlowColor}88` : 'none';
+    el.style.textShadow = `0 0 8px ${c.colTabTxt}88`;
   });
-  // Надпись уровня — пустой шаблон = скрыть
-  const levelTmpl = document.getElementById('lbl-level-tmpl')?.value ?? 'Созвездие {n} из {total}';
-  const levelEl = document.getElementById('s-level-txt');
-  if (levelEl) levelEl.style.display = levelTmpl === '' ? 'none' : '';
   document.querySelectorAll('.s-star').forEach(el => {
     el.style.background = `radial-gradient(circle,#fff 0%,${c.colStar} 50%,transparent 100%)`;
   });
@@ -695,38 +628,18 @@ function liveStyle() {
   document.getElementById('s-win-title').textContent = c.winTitle;
   document.getElementById('s-win-text').textContent = c.winText;
   document.getElementById('s-win-btn').textContent = c.againLbl;
-  // Обновить иконку и заголовок стартового экрана
-  updateStartIcon();
   if (game.active) {
-    const tmpl = document.getElementById('lbl-level-tmpl')?.value ?? 'Созвездие {n} из {total}';
-    const txt = tmpl.replace('{n}', game.current+1).replace('{total}', game.sentences.length)
-      || `${c.artifactLbl} ${game.current+1} из ${game.sentences.length}`;
-    if (levelEl) levelEl.textContent = txt;
+    document.getElementById('s-level-txt').textContent =
+      `${c.artifactLbl} ${game.current+1} из ${game.sentences.length}`;
   }
 }
 
-function restartToStart() {
-  // Скрыть экран победы
-  document.getElementById('s-win').style.display = 'none';
-  // Сбросить игровое состояние
-  game.active = false;
-  game.current = 0;
-  game.nextWord = 0;
-  game.transitioning = false;
-  game.coins = [];
-  document.getElementById('words-layer').innerHTML = '';
-  // Показать стартовый экран снова (с иконкой)
-  const startEl = document.getElementById('s-start');
-  if (startEl) startEl.style.display = 'flex';
-  updateStartIcon();
-}
-
-function startGame() {
-  // Запустить игру (вызывается кнопкой НАЧАТЬ на стартовом экране)
-  if (!game.sentences || !game.sentences.length) {
-    game.sentences = getSentences().map(s => s.split(/\s+/).filter(w=>w.length>0));
-  }
-  if (!game.sentences.length) return;
+function startPreview() {
+  // Полный сброс — вызывается только кнопкой
+  const ordered = document.getElementById('chk-ordered')?.checked;
+  const rawSentences = getSentences().map(s => s.split(/\s+/).filter(w=>w.length>0));
+  game.sentences = ordered ? rawSentences : [...rawSentences].sort(() => Math.random()-0.5);
+  if (!game.sentences.length) return alert('Добавьте хотя бы одну фразу!');
   game.active = true; game.current = 0; game.transitioning = false;
   document.getElementById('s-win').style.display = 'none';
   const startEl = document.getElementById('s-start'); if(startEl) startEl.style.display='none';
@@ -734,24 +647,6 @@ function startGame() {
   buildSlots();
   loadRound();
   ['ok','err','level','win'].forEach(k => loadAudio(k, document.getElementById(k==='win'?'snd-win':'s-'+k).value));
-}
-
-function startPreview() {
-  // Вызывается кнопкой редактора — показывает стартовый экран
-  game.sentences = getSentences().map(s => s.split(/\s+/).filter(w=>w.length>0));
-  if (!game.sentences.length) return alert('Добавьте хотя бы одну фразу!');
-  liveStyle();
-  animateBgStars();
-  startParticles();
-  const startEl = document.getElementById('s-start');
-  if (startEl) startEl.style.display = 'flex';
-  updateStartIcon();
-  // Сбросить состояние игры
-  game.active = false; game.current = 0; game.transitioning = false;
-  game.coins = [];
-  document.getElementById('words-layer').innerHTML = '';
-  document.getElementById('s-win').style.display = 'none';
-  buildSlots();
 }
 
 function applyStyle() {
@@ -817,28 +712,23 @@ function loadRound() {
 stage.addEventListener('mousemove', e => {
   if (!game.active || game.transitioning) return;
   const r = stage.getBoundingClientRect();
-  // Учитываем масштаб stage (в embed-режиме stage масштабируется через transform: scale)
-  const scaleX = 800 / r.width;
-  const scaleY = 450 / r.height;
-  game.mx = (e.clientX - r.left) * scaleX;
-  game.my = (e.clientY - r.top)  * scaleY;
+  game.mx = e.clientX - r.left;
+  game.my = e.clientY - r.top;
   game.lastX = e.clientX;
   cursor.style.left = game.mx+'px';
-  cursor.style.top  = game.my+'px';
+  cursor.style.top = game.my+'px';
   checkCollisions();
 });
 stage.addEventListener('mouseleave', () => { cursor.style.display='none'; });
 stage.addEventListener('mouseenter', () => { cursor.style.display='block'; });
 
 function checkCollisions() {
-  const cfg = getCfg();
+  const c = getCfg();
   const r = stage.getBoundingClientRect();
-  const scaleX = 800 / r.width;
-  const scaleY = 450 / r.height;
   game.coins.forEach(coin => {
     const rect = coin.el.getBoundingClientRect();
-    coin.x = (rect.left + rect.width/2  - r.left) * scaleX;
-    coin.y = (rect.top  + rect.height/2 - r.top)  * scaleY;
+    coin.x = rect.left + rect.width/2 - r.left;
+    coin.y = rect.top  + rect.height/2 - r.top;
     const dist = Math.hypot(game.mx-coin.x, game.my-coin.y);
 
     if (dist<70 && !coin.collected) coin.parentTab.classList.add('hovered');
@@ -849,7 +739,7 @@ function checkCollisions() {
       playAudio('ok');
       coin.collected=true;
       coin.el.classList.add('collected');
-      coin.el.style.background=`radial-gradient(circle,#fff 0%,${cfg.colStar} 40%,transparent 100%)`;
+      coin.el.style.background=`radial-gradient(circle,#fff 0%,${c.colStar} 40%,transparent 100%)`;
       coin.parentTab.classList.remove('hovered');
       game.nextWord++;
       if (game.nextWord===game.sentences[game.current].length) {
@@ -904,22 +794,20 @@ function animateToSlot(lastCoin) {
 // ── DRAW LOOP — connection lines ───────────────────────────────────
 function draw() {
   const r = stage.getBoundingClientRect();
-  // canvas всегда 800x450 — координаты в пространстве stage до масштаба
-  canvas.width  = 800;
-  canvas.height = 450;
-  ctx.clearRect(0, 0, 800, 450);
+  // canvas всегда точно по размеру stage
+  canvas.width  = r.width  || 800;
+  canvas.height = r.height || 450;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   if (!game.active) { requestAnimationFrame(draw); return; }
 
   const colLine = document.getElementById('col-line').value || '#a78bfa';
 
-  // Обновляем координаты звёзд с учётом масштаба stage
-  const scaleX = (r.width  || 800) / 800;
-  const scaleY = (r.height || 450) / 450;
+  // Обновляем координаты звёзд
   game.coins.forEach(coin => {
     const rect = coin.el.getBoundingClientRect();
-    coin.x = (rect.left + rect.width/2  - r.left) / scaleX;
-    coin.y = (rect.top  + rect.height/2 - r.top)  / scaleY;
+    coin.x = rect.left + rect.width/2  - r.left;
+    coin.y = rect.top  + rect.height/2 - r.top;
   });
 
   const collected = game.coins
@@ -999,9 +887,11 @@ function draw() {
 }
 
 
-function buildGameData() {
-  return {
+let finalCode = '';
+function generateCode() {
+  const data = {
     sentences: getSentences(),
+    ordered: document.getElementById('chk-ordered')?.checked || false,
     bgUrl: document.getElementById('inp-bg').value,
     starcount: document.getElementById('inp-starcount').value,
     tabSize: document.getElementById('inp-tabsize').value,
@@ -1023,51 +913,25 @@ function buildGameData() {
     sErr: document.getElementById('s-err').value,
     sLevel: document.getElementById('s-level').value,
     sWin: document.getElementById('snd-win').value,
-    iconUrl: document.getElementById('inp-icon').value,
+    tabOpacity: document.getElementById('inp-tab-opacity')?.value || 85,
     particles: document.getElementById('sel-particles')?.value || 'stars',
     particleCount: document.getElementById('inp-particle-count')?.value || 30,
-    particleOpacity: document.getElementById('inp-particle-opacity')?.value || 100,
-    colParticleGlow: document.getElementById('col-particle-glow')?.value || '#a78bfa',
-    particleGlow: document.getElementById('chk-particle-glow')?.checked !== false,
-    colTxtGlow: document.getElementById('col-txt-glow')?.value || '#a78bfa',
-    txtGlow: document.getElementById('chk-txt-glow')?.checked !== false,
-    levelTmpl: document.getElementById('lbl-level-tmpl')?.value ?? '',
     transparent: document.getElementById('chk-transparent')?.checked || false,
   };
-}
-
-let _generatedCode = '';
-
-function generateCode() {
-  const data = buildGameData();
-  if (!data.sentences.length) return alert('Добавьте хотя бы одну фразу!');
-
   const dataStr = btoa(encodeURIComponent(JSON.stringify(data)));
   const baseUrl = window.location.href.split('?')[0];
-
-  const isLocal = baseUrl.startsWith('file://') || baseUrl.startsWith('blob:');
-  document.getElementById('url-warning').style.display = isLocal ? 'block' : 'none';
-
-  _generatedCode = `<div style="width:100%;height:100%;overflow:hidden;position:relative;background:transparent;"><iframe src="${baseUrl}?data=${dataStr}" style="width:100%;height:100%;border:none;position:absolute;top:0;left:0;background:transparent;" scrolling="no" allowtransparency="true" allow="autoplay;fullscreen" frameborder="0"></iframe></div>`;
-
+  const urlWarn = document.getElementById('url-warning');
+  if (urlWarn) urlWarn.style.display = (baseUrl.startsWith('file://') || baseUrl.startsWith('blob:')) ? 'block' : 'none';
+  finalCode = `<div style="width:100%;height:100%;overflow:hidden;position:relative;background:transparent;pointer-events:all"><iframe src="${baseUrl}?data=${dataStr}" style="width:100%;height:100%;border:none;position:absolute;top:0;left:0;pointer-events:all" scrolling="no" allowtransparency="true" allow="autoplay;fullscreen" frameborder="0"></iframe></div>`;
   document.getElementById('copy-btn').style.display = 'block';
-  const msg = document.getElementById('gen-msg');
-  msg.style.display = 'block';
-  setTimeout(() => msg.style.display = 'none', 2000);
+  document.getElementById('gen-msg').style.display = 'block';
+  setTimeout(()=>document.getElementById('gen-msg').style.display='none', 3000);
 }
-
 function copyCode() {
-  const ta = document.createElement('textarea');
-  ta.value = _generatedCode;
-  document.body.appendChild(ta);
-  ta.select();
-  try { document.execCommand('copy'); } catch(e) {
-    navigator.clipboard.writeText(_generatedCode);
-  }
-  document.body.removeChild(ta);
-  const msg = document.getElementById('copy-msg');
-  msg.style.display = 'block';
-  setTimeout(() => msg.style.display = 'none', 2000);
+  navigator.clipboard.writeText(finalCode).then(()=>{
+    document.getElementById('copy-btn').textContent='✅ Скопировано!';
+    setTimeout(()=>document.getElementById('copy-btn').textContent='СКОПИРОВАТЬ 📋',2000);
+  });
 }
 
 // ── EMBED MODE ────────────────────────────────────────────────────
@@ -1075,23 +939,19 @@ function scaleStage() {
   if (!document.documentElement.classList.contains('embed-mode')) return;
   const stg = document.getElementById('stage');
   if (!stg) return;
-  const W = document.documentElement.clientWidth  || window.innerWidth  || 800;
-  const H = document.documentElement.clientHeight || window.innerHeight || 450;
-  const scale = Math.min(W / 800, H / 450);
+  const scale = Math.min(window.innerWidth / 800, window.innerHeight / 450);
   stg.style.transform = `translate(-50%, -50%) scale(${scale})`;
+  // canvas под 800x450 - stage фиксированного размера
   [bgCanvas, canvas].forEach(c => { c.width = 800; c.height = 450; });
   const pCv = document.getElementById('particle-canvas');
   if (pCv) { pCv.width = 800; pCv.height = 450; }
 }
 
 function initFromUrl() {
-  // Читаем данные из URL-параметра ?data= (как в Попрыгунчике)
   const params = new URLSearchParams(window.location.search);
   if (!params.has('data')) return;
-  let d;
-  try { d = JSON.parse(decodeURIComponent(atob(params.get('data')))); } catch(e) { return; }
-  if (!d) return;
   try {
+    const d = JSON.parse(decodeURIComponent(atob(params.get('data'))));
 
     // Восстановить настройки
     const map = {
@@ -1102,45 +962,30 @@ function initFromUrl() {
       artifactLbl:'lbl-artifact', winTitle:'lbl-win-title',
       winText:'lbl-win-text', againLbl:'lbl-again',
       tabOpacity:'inp-tab-opacity', particles:'sel-particles',
-      particleCount:'inp-particle-count', particleOpacity:'inp-particle-opacity',
-      sOk:'s-ok', sErr:'s-err', sLevel:'s-level', sWin:'snd-win',
-      iconUrl:'inp-icon',
-      levelTmpl:'lbl-level-tmpl',
-      colParticleGlow:'col-particle-glow', colTxtGlow:'col-txt-glow'
+      particleCount:'inp-particle-count',
+      sOk:'s-ok', sErr:'s-err', sLevel:'s-level', sWin:'snd-win'
     };
     Object.entries(map).forEach(([k,id]) => {
       const el = document.getElementById(id);
       if (el && d[k] !== undefined) el.value = d[k];
     });
-    // Чекбоксы
-    if (d.particleGlow !== undefined) {
-      const el = document.getElementById('chk-particle-glow');
-      if (el) el.checked = d.particleGlow;
-    }
-    if (d.txtGlow !== undefined) {
-      const el = document.getElementById('chk-txt-glow');
-      if (el) el.checked = d.txtGlow;
-    }
     if (d.sentences) {
       document.getElementById('sentences-list').innerHTML = '';
       d.sentences.forEach(s => addSentence(s));
+    }
+    if (d.ordered !== undefined) {
+      const chk = document.getElementById('chk-ordered');
+      if (chk) chk.checked = d.ordered;
     }
     if (d.transparent !== undefined) {
       const chk = document.getElementById('chk-transparent');
       if (chk) chk.checked = d.transparent;
     }
-    // Обновить иконку старта после восстановления URL
-    updateStartIcon();
-    // КРИТИЧНО: генерировать звёзды с восстановленным количеством и цветом
-    generateBgStars();
-    // Предзагрузить фоновое изображение если задан URL
-    const bgUrlVal = document.getElementById('inp-bg').value.trim();
-    if (bgUrlVal) applyBgUrl(bgUrlVal);
 
-    // Масштабируем stage — rAF гарантирует что layout уже посчитан
+    // Масштабируем stage как в попрыгунчике
     if (document.documentElement.classList.contains('embed-mode')) {
       window.addEventListener('resize', scaleStage);
-      requestAnimationFrame(() => { scaleStage(); requestAnimationFrame(scaleStage); });
+      scaleStage();
     }
 
     // Загрузить звуки при первом касании
@@ -1154,13 +999,7 @@ function initFromUrl() {
     liveStyle();
     animateBgStars();
     startParticles();
-    // Показать стартовый экран — игра стартует только по кнопке
-    setTimeout(() => {
-      scaleStage();
-      const startEl = document.getElementById('s-start');
-      if (startEl) startEl.style.display = 'flex';
-      updateStartIcon();
-    }, 100);
+    setTimeout(() => { scaleStage(); startPreview(); }, 300);
   } catch(e) { console.error('URL parse error', e); }
 }
 
