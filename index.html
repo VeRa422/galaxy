@@ -7,10 +7,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;700&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
 <style>
 .embed-mode #editor { display: none !important; }
-.embed-mode #stage-wrap { background: transparent !important; }
-.embed-mode body { margin: 0; padding: 0; overflow: hidden; background: transparent !important; }
-.embed-mode #stage { position: fixed !important; top: 0 !important; left: 0 !important;
-  width: 100vw !important; height: 100vh !important; border-radius: 0 !important; }
+.embed-mode #stage-wrap { background: transparent !important; position: fixed !important;
+  top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; }
+.embed-mode body { margin: 0 !important; padding: 0 !important; overflow: hidden !important; background: transparent !important; }
+.embed-mode #stage { position: absolute !important; left: 50% !important; top: 50% !important; }
 
 :root {
   --bg: #020617; --pn: #0f172a; --bd: #1e293b;
@@ -356,7 +356,7 @@ let bgStars = [];
 
 function generateBgStars() {
   const count = parseInt(document.getElementById('inp-starcount').value)||120;
-  const W = bgCanvas.width || 800, H = bgCanvas.height || 450;
+  const W = 800, H = 450;
   bgStars = Array.from({length: count}, () => ({
     x: Math.random()*W, y: Math.random()*H,
     r: Math.random()*1.5+0.3,
@@ -426,8 +426,8 @@ function _runParticles(type) {
   const pCv = document.getElementById('particle-canvas');
   if (!pCv) return;
   const ctx = pCv.getContext('2d');
-  const W = pCv.width || window.innerWidth;
-  const H = pCv.height || window.innerHeight;
+  const W = 800;
+  const H = 450;
   const count = parseInt(document.getElementById('inp-particle-count')?.value || 30);
 
   // Spawn new particles
@@ -523,7 +523,7 @@ function animateBgStars() {
   twinkleFrame++;
   const color = document.getElementById('col-bgstar').value;
   const bgUrl = document.getElementById('inp-bg').value;
-  const W = bgCanvas.width || 800, H = bgCanvas.height || 450;
+  const W = 800, H = 450;
   bgCtx.clearRect(0,0,W,H);
   if (!bgUrl && !window._transparentBg) {
     const grad = bgCtx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H));
@@ -671,16 +671,14 @@ function loadRound() {
   const words = game.sentences[game.current];
   const shuffled = [...words].sort(()=>Math.random()-0.5);
 
-  const SW = stage.offsetWidth || 800;
-  const SH = stage.offsetHeight || 450;
   const cols = Math.min(3, shuffled.length);
   const rows = Math.ceil(shuffled.length/cols);
-  const mX = SW*0.08, mY = SH*0.18;
-  const cW = (SW - mX*2)/cols, cH = (SH - mY - SH*0.08)/rows;
+  const mX = 65, mY = 90;
+  const cW = (800 - mX*2)/cols, cH = (450 - mY - 50)/rows;
 
   shuffled.forEach((word, idx) => {
     const col=idx%cols, row=Math.floor(idx/cols);
-    const jx=(Math.random()-0.5)*SW*0.06, jy=(Math.random()-0.5)*SH*0.06;
+    const jx=(Math.random()-0.5)*60, jy=(Math.random()-0.5)*35;
     const x = mX + col*cW + cW/2 - 50 + jx;
     const y = mY + row*cH + cH/2 - 25 + jy;
 
@@ -930,6 +928,18 @@ function copyCode() {
 }
 
 // ── EMBED MODE ────────────────────────────────────────────────────
+function scaleStage() {
+  if (!document.documentElement.classList.contains('embed-mode')) return;
+  const stg = document.getElementById('stage');
+  if (!stg) return;
+  const scale = Math.min(window.innerWidth / 800, window.innerHeight / 450);
+  stg.style.transform = `translate(-50%, -50%) scale(${scale})`;
+  // canvas под 800x450 - stage фиксированного размера
+  [bgCanvas, canvas].forEach(c => { c.width = 800; c.height = 450; });
+  const pCv = document.getElementById('particle-canvas');
+  if (pCv) { pCv.width = 800; pCv.height = 450; }
+}
+
 function initFromUrl() {
   const params = new URLSearchParams(window.location.search);
   if (!params.has('data')) return;
@@ -961,18 +971,10 @@ function initFromUrl() {
       if (chk) chk.checked = d.transparent;
     }
 
-    // В embed режиме растянуть canvas под реальный экран
+    // Масштабируем stage как в попрыгунчике
     if (document.documentElement.classList.contains('embed-mode')) {
-      bgCanvas.width = window.innerWidth; bgCanvas.height = window.innerHeight;
-      canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-      const pCv = document.getElementById('particle-canvas');
-      if (pCv) { pCv.width = window.innerWidth; pCv.height = window.innerHeight; }
-      window.addEventListener('resize', () => {
-        bgCanvas.width = window.innerWidth; bgCanvas.height = window.innerHeight;
-        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-        if (pCv) { pCv.width = window.innerWidth; pCv.height = window.innerHeight; }
-        animateBgStars();
-      });
+      window.addEventListener('resize', scaleStage);
+      scaleStage();
     }
 
     // Загрузить звуки при первом касании
@@ -986,7 +988,7 @@ function initFromUrl() {
     liveStyle();
     animateBgStars();
     startParticles();
-    setTimeout(startPreview, 300);
+    setTimeout(() => { scaleStage(); startPreview(); }, 300);
   } catch(e) { console.error('URL parse error', e); }
 }
 
