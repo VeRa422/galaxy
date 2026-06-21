@@ -753,11 +753,14 @@ function loadRound() {
 stage.addEventListener('mousemove', e => {
   if (!game.active || game.transitioning) return;
   const r = stage.getBoundingClientRect();
-  game.mx = e.clientX - r.left;
-  game.my = e.clientY - r.top;
+  // Учитываем масштаб stage (в embed-режиме stage масштабируется через transform: scale)
+  const scaleX = 800 / r.width;
+  const scaleY = 450 / r.height;
+  game.mx = (e.clientX - r.left) * scaleX;
+  game.my = (e.clientY - r.top)  * scaleY;
   game.lastX = e.clientX;
   cursor.style.left = game.mx+'px';
-  cursor.style.top = game.my+'px';
+  cursor.style.top  = game.my+'px';
   checkCollisions();
 });
 stage.addEventListener('mouseleave', () => { cursor.style.display='none'; });
@@ -766,10 +769,12 @@ stage.addEventListener('mouseenter', () => { cursor.style.display='block'; });
 function checkCollisions() {
   const cfg = getCfg();
   const r = stage.getBoundingClientRect();
+  const scaleX = 800 / r.width;
+  const scaleY = 450 / r.height;
   game.coins.forEach(coin => {
     const rect = coin.el.getBoundingClientRect();
-    coin.x = rect.left + rect.width/2 - r.left;
-    coin.y = rect.top  + rect.height/2 - r.top;
+    coin.x = (rect.left + rect.width/2  - r.left) * scaleX;
+    coin.y = (rect.top  + rect.height/2 - r.top)  * scaleY;
     const dist = Math.hypot(game.mx-coin.x, game.my-coin.y);
 
     if (dist<70 && !coin.collected) coin.parentTab.classList.add('hovered');
@@ -835,20 +840,22 @@ function animateToSlot(lastCoin) {
 // ── DRAW LOOP — connection lines ───────────────────────────────────
 function draw() {
   const r = stage.getBoundingClientRect();
-  // canvas всегда точно по размеру stage
-  canvas.width  = r.width  || 800;
-  canvas.height = r.height || 450;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // canvas всегда 800x450 — координаты в пространстве stage до масштаба
+  canvas.width  = 800;
+  canvas.height = 450;
+  ctx.clearRect(0, 0, 800, 450);
 
   if (!game.active) { requestAnimationFrame(draw); return; }
 
   const colLine = document.getElementById('col-line').value || '#a78bfa';
 
-  // Обновляем координаты звёзд
+  // Обновляем координаты звёзд с учётом масштаба stage
+  const scaleX = (r.width  || 800) / 800;
+  const scaleY = (r.height || 450) / 450;
   game.coins.forEach(coin => {
     const rect = coin.el.getBoundingClientRect();
-    coin.x = rect.left + rect.width/2  - r.left;
-    coin.y = rect.top  + rect.height/2 - r.top;
+    coin.x = (rect.left + rect.width/2  - r.left) / scaleX;
+    coin.y = (rect.top  + rect.height/2 - r.top)  / scaleY;
   });
 
   const collected = game.coins
