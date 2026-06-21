@@ -205,6 +205,10 @@ input[type=range]{width:100%;accent-color:var(--acc)}
         <label>Количество частиц</label>
         <input type="range" id="inp-particle-count" min="5" max="80" value="30" oninput="startParticles()">
       </div>
+      <div class="ui-item">
+        <label>Прозрачность эффектов</label>
+        <input type="range" id="inp-particle-opacity" min="5" max="100" value="100" oninput="startParticles()">
+      </div>
       <div class="ui-item" style="display:flex;align-items:center;gap:8px;padding-top:4px">
         <input type="checkbox" id="chk-transparent" onchange="liveStyle()" style="width:16px;height:16px;accent-color:#a78bfa;cursor:pointer">
         <label for="chk-transparent" style="cursor:pointer;font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:1px">Прозрачный фон (для Genially)</label>
@@ -372,11 +376,13 @@ let twinkleFrame = 0;
 // ── PARTICLES SYSTEM ─────────────────────────────────────────────
 let _particleRAF = null;
 let _particles = [];
+let _particleLastTime = 0;
+
 const EMOJIS = {
   butterflies: ['🦋'],
   hearts:      ['❤️','🩷','🩵','💜'],
-  flowers:     ['🌸','🌺','🌼','🌻'],
-  balloons:    ['🎈','🎀','🎊'],
+  flowers:     ['🌸'],
+  balloons:    ['🎈'],
 };
 // canvas-drawn types
 const CANVAS_TYPES = ['stars','sparks','bubbles'];
@@ -391,13 +397,18 @@ function startParticles() {
   _runParticles(type);
 }
 
-function _runParticles(type) {
+function _runParticles(type, now) {
   const pCv = document.getElementById('particle-canvas');
   if (!pCv) return;
   const ctx = pCv.getContext('2d');
   const W = 800;
   const H = 450;
   const count = parseInt(document.getElementById('inp-particle-count')?.value || 30);
+  const particleOpacity = (parseInt(document.getElementById('inp-particle-opacity')?.value || 100)) / 100;
+
+  // Delta time — нормализовано к 60fps. Ограничиваем чтобы не было скачков при потере фокуса
+  const dt = Math.min((now - (_particleLastTime || now)) / (1000/60), 3);
+  _particleLastTime = now;
 
   // Spawn new particles
   const starParticles = _particles.filter(p => p.twinkleSpeed !== undefined);
@@ -457,10 +468,10 @@ function _runParticles(type) {
   _particles.forEach(p => {
     if (p.twinkleSpeed !== undefined) {
       // Мерцающие звёзды — не двигаются, только мигают
-      p.twinklePhase += p.twinkleSpeed;
+      p.twinklePhase += p.twinkleSpeed * dt;
       const tw = 0.5 + 0.5 * Math.sin(p.twinklePhase);
       ctx.save();
-      ctx.globalAlpha = p.opacity * (0.4 + 0.6 * tw);
+      ctx.globalAlpha = p.opacity * (0.4 + 0.6 * tw) * particleOpacity;
       ctx.fillStyle = p.color;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size * (0.7 + 0.3 * tw), 0, Math.PI*2);
@@ -468,9 +479,9 @@ function _runParticles(type) {
       ctx.restore();
       return;
     }
-    p.x += p.vx; p.y += p.vy; p.life -= p.decay;
+    p.x += p.vx * dt; p.y += p.vy * dt; p.life -= p.decay * dt;
     ctx.save();
-    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.globalAlpha = Math.max(0, p.life) * particleOpacity;
     if (p.emoji) {
       ctx.font = `${p.size}px serif`;
       ctx.textAlign = 'center';
@@ -498,7 +509,7 @@ function _runParticles(type) {
     ctx.restore();
   });
 
-  _particleRAF = requestAnimationFrame(() => _runParticles(type));
+  _particleRAF = requestAnimationFrame((now) => _runParticles(type, now));
 }
 
 
@@ -963,13 +974,14 @@ function generateCode() {
     iconUrl: document.getElementById('inp-icon').value,
     particles: document.getElementById('sel-particles')?.value || 'stars',
     particleCount: document.getElementById('inp-particle-count')?.value || 30,
+    particleOpacity: document.getElementById('inp-particle-opacity')?.value || 100,
     transparent: document.getElementById('chk-transparent')?.checked || false,
   };
   const dataStr = btoa(encodeURIComponent(JSON.stringify(data)));
   const baseUrl = window.location.href.split('?')[0];
   const urlWarn = document.getElementById('url-warning');
   if (urlWarn) urlWarn.style.display = (baseUrl.startsWith('file://') || baseUrl.startsWith('blob:')) ? 'block' : 'none';
-  finalCode = `<div style="width:100%;height:100%;overflow:hidden;position:relative;background:transparent;pointer-events:all"><iframe src="${baseUrl}?data=${dataStr}" style="width:100%;height:100%;border:none;position:absolute;top:0;left:0;pointer-events:all" scrolling="no" allowtransparency="true" allow="autoplay;fullscreen" frameborder="0"></iframe></div>`;
+  finalCode = `<div style="width:100%;height:100%;overflow:hidden;position:relative;background:transparent;pointer-events:all"><iframe src="${baseUrl}?data=${dataStr}" style="width:100%;height:100%;border:none;position:absolute;top:0;left:0;pointer-events:all" scrolling="no" allowtransparency="true" allow="autoplay;fullscreen" frameborder="0"></iframe><div class="genially-view-element-drag-handle" style="position:absolute;inset:0;pointer-events:none;z-index:9999"></div></div>`;
   document.getElementById('copy-btn').style.display = 'block';
   document.getElementById('gen-msg').style.display = 'block';
   setTimeout(()=>document.getElementById('gen-msg').style.display='none', 3000);
@@ -1009,7 +1021,7 @@ function initFromUrl() {
       artifactLbl:'lbl-artifact', winTitle:'lbl-win-title',
       winText:'lbl-win-text', againLbl:'lbl-again',
       tabOpacity:'inp-tab-opacity', particles:'sel-particles',
-      particleCount:'inp-particle-count',
+      particleCount:'inp-particle-count', particleOpacity:'inp-particle-opacity',
       sOk:'s-ok', sErr:'s-err', sLevel:'s-level', sWin:'snd-win',
       iconUrl:'inp-icon'
     };
