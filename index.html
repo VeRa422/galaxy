@@ -293,7 +293,7 @@ input[type=range]{width:100%;accent-color:var(--acc)}
         <div style="font-size:48px;margin-bottom:8px">✦</div>
         <h2 id="s-win-title">КАРТА НЕБЕС ОТКРЫТА!</h2>
         <p id="s-win-text">Все созвездия найдены!</p>
-        <button class="s-win-btn" onclick="startPreview()" id="s-win-btn">Снова в небо</button>
+        <button class="s-win-btn" onclick="restartToStart()" id="s-win-btn">Снова в небо</button>
       </div>
     </div>
   </div>
@@ -442,7 +442,8 @@ function _runParticles(type) {
         _particles.push({
           x: Math.random() * W, y: Math.random() * H,
           size: 0.5 + Math.random() * 2,
-          life: Math.random(), decay: 0,
+          life: 1, decay: 0,
+          opacity: 0.4 + Math.random() * 0.6,
           twinkleSpeed: 0.02 + Math.random() * 0.03,
           twinklePhase: Math.random() * Math.PI * 2,
           color: ['#ffffff','#e2e8f0','#c4b5fd','#a78bfa'][Math.floor(Math.random()*4)]
@@ -485,6 +486,19 @@ function _runParticles(type) {
   _particles = _particles.filter(p => p.twinkleSpeed !== undefined || (p.life > 0 && p.y > -50));
 
   _particles.forEach(p => {
+    if (p.twinkleSpeed !== undefined) {
+      // Мерцающие звёзды — не двигаются, только мигают
+      p.twinklePhase += p.twinkleSpeed;
+      const tw = 0.5 + 0.5 * Math.sin(p.twinklePhase);
+      ctx.save();
+      ctx.globalAlpha = p.opacity * (0.4 + 0.6 * tw);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * (0.7 + 0.3 * tw), 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
     p.x += p.vx; p.y += p.vy; p.life -= p.decay;
     ctx.save();
     ctx.globalAlpha = Math.max(0, p.life);
@@ -624,10 +638,28 @@ function liveStyle() {
   document.getElementById('s-win-title').textContent = c.winTitle;
   document.getElementById('s-win-text').textContent = c.winText;
   document.getElementById('s-win-btn').textContent = c.againLbl;
+  // Обновить иконку и заголовок стартового экрана
+  updateStartIcon();
   if (game.active) {
     document.getElementById('s-level-txt').textContent =
       `${c.artifactLbl} ${game.current+1} из ${game.sentences.length}`;
   }
+}
+
+function restartToStart() {
+  // Скрыть экран победы
+  document.getElementById('s-win').style.display = 'none';
+  // Сбросить игровое состояние
+  game.active = false;
+  game.current = 0;
+  game.nextWord = 0;
+  game.transitioning = false;
+  game.coins = [];
+  document.getElementById('words-layer').innerHTML = '';
+  // Показать стартовый экран снова (с иконкой)
+  const startEl = document.getElementById('s-start');
+  if (startEl) startEl.style.display = 'flex';
+  updateStartIcon();
 }
 
 function startPreview() {
@@ -717,7 +749,7 @@ stage.addEventListener('mouseleave', () => { cursor.style.display='none'; });
 stage.addEventListener('mouseenter', () => { cursor.style.display='block'; });
 
 function checkCollisions() {
-  const c = getCfg();
+  const cfg = getCfg();
   const r = stage.getBoundingClientRect();
   game.coins.forEach(coin => {
     const rect = coin.el.getBoundingClientRect();
@@ -733,7 +765,7 @@ function checkCollisions() {
       playAudio('ok');
       coin.collected=true;
       coin.el.classList.add('collected');
-      coin.el.style.background=`radial-gradient(circle,#fff 0%,${c.colStar} 40%,transparent 100%)`;
+      coin.el.style.background=`radial-gradient(circle,#fff 0%,${cfg.colStar} 40%,transparent 100%)`;
       coin.parentTab.classList.remove('hovered');
       game.nextWord++;
       if (game.nextWord===game.sentences[game.current].length) {
@@ -906,7 +938,7 @@ function generateCode() {
     sErr: document.getElementById('s-err').value,
     sLevel: document.getElementById('s-level').value,
     sWin: document.getElementById('snd-win').value,
-    tabOpacity: document.getElementById('inp-tab-opacity')?.value || 85,
+    iconUrl: document.getElementById('inp-icon').value,
     particles: document.getElementById('sel-particles')?.value || 'stars',
     particleCount: document.getElementById('inp-particle-count')?.value || 30,
     transparent: document.getElementById('chk-transparent')?.checked || false,
@@ -956,7 +988,8 @@ function initFromUrl() {
       winText:'lbl-win-text', againLbl:'lbl-again',
       tabOpacity:'inp-tab-opacity', particles:'sel-particles',
       particleCount:'inp-particle-count',
-      sOk:'s-ok', sErr:'s-err', sLevel:'s-level', sWin:'snd-win'
+      sOk:'s-ok', sErr:'s-err', sLevel:'s-level', sWin:'snd-win',
+      iconUrl:'inp-icon'
     };
     Object.entries(map).forEach(([k,id]) => {
       const el = document.getElementById(id);
@@ -970,6 +1003,8 @@ function initFromUrl() {
       const chk = document.getElementById('chk-transparent');
       if (chk) chk.checked = d.transparent;
     }
+    // Обновить иконку старта после восстановления URL
+    updateStartIcon();
 
     // Масштабируем stage как в попрыгунчике
     if (document.documentElement.classList.contains('embed-mode')) {
