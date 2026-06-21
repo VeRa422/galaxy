@@ -217,6 +217,7 @@ input[type=range]{width:100%;accent-color:var(--acc)}
       <div class="ui-item"><label>Звёзд на фоне</label><input type="range" id="inp-starcount" min="30" max="300" value="120" oninput="generateBgStars(); reinitDebounced()"></div>
       <div class="ui-item"><label>Размер шрифта</label><input type="range" id="inp-tabsize" min="10" max="32" value="16" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Размер курсора</label><input type="range" id="inp-cursorsize" min="24" max="80" value="48" oninput="liveStyle()"></div>
+      <div class="ui-item"><label>Надпись «Созвездие N из M»</label><input type="text" id="lbl-level-tmpl" value="" placeholder="оставь пустым — скрыть надпись" oninput="liveStyle()"></div>
     </div>
   </div>
 
@@ -224,9 +225,19 @@ input[type=range]{width:100%;accent-color:var(--acc)}
   <div class="box">
     <div class="ui-grid">
       <div class="ui-item"><label>Цвет звёзд / частиц</label><input type="color" id="col-bgstar" value="#ffffff" oninput="generateBgStars(); reinitDebounced()"></div>
+      <div class="ui-item"><label>Подсветка эффектов</label><input type="color" id="col-particle-glow" value="#a78bfa" oninput="startParticles()"></div>
+      <div class="ui-item" style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="chk-particle-glow" checked onchange="startParticles()" style="width:16px;height:16px;accent-color:#a78bfa;cursor:pointer">
+        <label for="chk-particle-glow" style="cursor:pointer;font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:1px">Подсветка эффектов вкл</label>
+      </div>
       <div class="ui-item"><label>Цвет таблички</label><input type="color" id="col-tab-bg" value="#0f172a" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Прозрачность таблички</label><input type="range" id="inp-tab-opacity" min="0" max="100" value="85" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Текст таблички</label><input type="color" id="col-tab-txt" value="#e2e8f0" oninput="liveStyle()"></div>
+      <div class="ui-item" style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="chk-txt-glow" checked onchange="liveStyle()" style="width:16px;height:16px;accent-color:#a78bfa;cursor:pointer">
+        <label for="chk-txt-glow" style="cursor:pointer;font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:1px">Подсветка текста вкл</label>
+      </div>
+      <div class="ui-item"><label>Цвет подсветки текста</label><input type="color" id="col-txt-glow" value="#a78bfa" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Рамка таблички</label><input type="color" id="col-tab-bd" value="#a78bfa" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Звезда-ответ</label><input type="color" id="col-star" value="#a78bfa" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Линия созвездия</label><input type="color" id="col-line" value="#a78bfa" oninput="liveStyle()"></div>
@@ -405,6 +416,8 @@ function _runParticles(type, now) {
   const H = 450;
   const count = parseInt(document.getElementById('inp-particle-count')?.value || 30);
   const particleOpacity = (parseInt(document.getElementById('inp-particle-opacity')?.value || 100)) / 100;
+  const glowEnabled = document.getElementById('chk-particle-glow')?.checked !== false;
+  const glowColor = document.getElementById('col-particle-glow')?.value || '#a78bfa';
 
   // Delta time — нормализовано к 60fps. Ограничиваем чтобы не было скачков при потере фокуса
   const dt = Math.min((now - (_particleLastTime || now)) / (1000/60), 3);
@@ -443,9 +456,12 @@ function _runParticles(type, now) {
       } else if (type === 'sparks') {
         _particles.push({
           x: Math.random() * W, y: Math.random() * H,
-          vx: (Math.random()-0.5)*3, vy: (Math.random()-0.5)*3,
-          size: 1 + Math.random() * 3,
-          life: 1, decay: 0.015 + Math.random()*0.02,
+          vx: 0, vy: 0,
+          size: 1.5 + Math.random() * 3,
+          life: 1, decay: 0,
+          twinkleSpeed: 0.03 + Math.random() * 0.06,
+          twinklePhase: Math.random() * Math.PI * 2,
+          opacity: 0.4 + Math.random() * 0.6,
           color: ['#a78bfa','#c4b5fd','#e879f9','#fff'][Math.floor(Math.random()*4)]
         });
       } else if (type === 'bubbles') {
@@ -467,12 +483,17 @@ function _runParticles(type, now) {
 
   _particles.forEach(p => {
     if (p.twinkleSpeed !== undefined) {
-      // Мерцающие звёзды — не двигаются, только мигают
       p.twinklePhase += p.twinkleSpeed * dt;
       const tw = 0.5 + 0.5 * Math.sin(p.twinklePhase);
       ctx.save();
       ctx.globalAlpha = p.opacity * (0.4 + 0.6 * tw) * particleOpacity;
-      ctx.fillStyle = p.color;
+      if (p.color && p.color !== (document.getElementById('col-bgstar')?.value||'#ffffff')) {
+        // Искра — цветная, с подсветкой
+        if (glowEnabled) { ctx.shadowBlur = 8; ctx.shadowColor = glowColor; }
+        ctx.fillStyle = p.color;
+      } else {
+        ctx.fillStyle = document.getElementById('col-bgstar')?.value || '#ffffff';
+      }
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size * (0.7 + 0.3 * tw), 0, Math.PI*2);
       ctx.fill();
@@ -486,9 +507,10 @@ function _runParticles(type, now) {
       ctx.font = `${p.size}px serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
+      if (glowEnabled) { ctx.shadowBlur = 12; ctx.shadowColor = glowColor; }
       ctx.fillText(p.emoji, p.x, p.y);
     } else if (type === 'sparks') {
-      ctx.shadowBlur = 10; ctx.shadowColor = p.color;
+      if (glowEnabled) { ctx.shadowBlur = 10; ctx.shadowColor = glowColor; }
       ctx.fillStyle = p.color;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI*2);
@@ -496,11 +518,10 @@ function _runParticles(type, now) {
     } else if (type === 'bubbles') {
       ctx.strokeStyle = p.color;
       ctx.lineWidth = 1.5;
-      ctx.shadowBlur = 6; ctx.shadowColor = p.color;
+      if (glowEnabled) { ctx.shadowBlur = 6; ctx.shadowColor = glowColor; }
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
       ctx.stroke();
-      // Блик
       ctx.fillStyle = 'rgba(255,255,255,0.15)';
       ctx.beginPath();
       ctx.arc(p.x - p.size*0.3, p.y - p.size*0.3, p.size*0.25, 0, Math.PI*2);
@@ -633,8 +654,14 @@ function liveStyle() {
   document.querySelectorAll('.word-label').forEach(el => {
     el.style.fontSize = c.tabSize+'px';
     el.style.color = c.colTabTxt;
-    el.style.textShadow = `0 0 8px ${c.colTabTxt}88`;
+    const txtGlow = document.getElementById('chk-txt-glow')?.checked !== false;
+    const txtGlowColor = document.getElementById('col-txt-glow')?.value || c.colTabTxt;
+    el.style.textShadow = txtGlow ? `0 0 10px ${txtGlowColor}, 0 0 20px ${txtGlowColor}88` : 'none';
   });
+  // Надпись уровня — пустой шаблон = скрыть
+  const levelTmpl = document.getElementById('lbl-level-tmpl')?.value ?? 'Созвездие {n} из {total}';
+  const levelEl = document.getElementById('s-level-txt');
+  if (levelEl) levelEl.style.display = levelTmpl === '' ? 'none' : '';
   document.querySelectorAll('.s-star').forEach(el => {
     el.style.background = `radial-gradient(circle,#fff 0%,${c.colStar} 50%,transparent 100%)`;
   });
@@ -647,8 +674,10 @@ function liveStyle() {
   // Обновить иконку и заголовок стартового экрана
   updateStartIcon();
   if (game.active) {
-    document.getElementById('s-level-txt').textContent =
-      `${c.artifactLbl} ${game.current+1} из ${game.sentences.length}`;
+    const tmpl = document.getElementById('lbl-level-tmpl')?.value ?? 'Созвездие {n} из {total}';
+    const txt = tmpl.replace('{n}', game.current+1).replace('{total}', game.sentences.length)
+      || `${c.artifactLbl} ${game.current+1} из ${game.sentences.length}`;
+    if (levelEl) levelEl.textContent = txt;
   }
 }
 
@@ -975,6 +1004,11 @@ function generateCode() {
     particles: document.getElementById('sel-particles')?.value || 'stars',
     particleCount: document.getElementById('inp-particle-count')?.value || 30,
     particleOpacity: document.getElementById('inp-particle-opacity')?.value || 100,
+    colParticleGlow: document.getElementById('col-particle-glow')?.value || '#a78bfa',
+    particleGlow: document.getElementById('chk-particle-glow')?.checked !== false,
+    colTxtGlow: document.getElementById('col-txt-glow')?.value || '#a78bfa',
+    txtGlow: document.getElementById('chk-txt-glow')?.checked !== false,
+    levelTmpl: document.getElementById('lbl-level-tmpl')?.value ?? 'Созвездие {n} из {total}',
     transparent: document.getElementById('chk-transparent')?.checked || false,
   };
   const dataStr = btoa(encodeURIComponent(JSON.stringify(data)));
@@ -1023,12 +1057,23 @@ function initFromUrl() {
       tabOpacity:'inp-tab-opacity', particles:'sel-particles',
       particleCount:'inp-particle-count', particleOpacity:'inp-particle-opacity',
       sOk:'s-ok', sErr:'s-err', sLevel:'s-level', sWin:'snd-win',
-      iconUrl:'inp-icon'
+      iconUrl:'inp-icon',
+      levelTmpl:'lbl-level-tmpl',
+      colParticleGlow:'col-particle-glow', colTxtGlow:'col-txt-glow'
     };
     Object.entries(map).forEach(([k,id]) => {
       const el = document.getElementById(id);
       if (el && d[k] !== undefined) el.value = d[k];
     });
+    // Чекбоксы
+    if (d.particleGlow !== undefined) {
+      const el = document.getElementById('chk-particle-glow');
+      if (el) el.checked = d.particleGlow;
+    }
+    if (d.txtGlow !== undefined) {
+      const el = document.getElementById('chk-txt-glow');
+      if (el) el.checked = d.txtGlow;
+    }
     if (d.sentences) {
       document.getElementById('sentences-list').innerHTML = '';
       d.sentences.forEach(s => addSentence(s));
@@ -1039,6 +1084,8 @@ function initFromUrl() {
     }
     // Обновить иконку старта после восстановления URL
     updateStartIcon();
+    // КРИТИЧНО: генерировать звёзды с восстановленным количеством и цветом
+    generateBgStars();
     // Предзагрузить фоновое изображение если задан URL
     const bgUrlVal = document.getElementById('inp-bg').value.trim();
     if (bgUrlVal) applyBgUrl(bgUrlVal);
