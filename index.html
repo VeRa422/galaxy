@@ -3,14 +3,38 @@
 <head>
 <meta charset="UTF-8">
 <title>СОЗВЕЗДИЯ — Редактор</title>
-<script>if(window.location.search.includes('data='))document.documentElement.classList.add('embed-mode');</script>
+<script>
+// embed-mode определяется по наличию __EMBED_DATA__ (srcdoc) или ?data= (URL)
+if(window.__EMBED_DATA__ || window.location.search.includes('data='))
+  document.documentElement.classList.add('embed-mode');
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;700&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
 <style>
+/* ── EMBED MODE — полностью переопределяем layout ── */
 .embed-mode #editor { display: none !important; }
-.embed-mode #stage-wrap { background: transparent !important; position: fixed !important;
-  top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; }
-.embed-mode body { margin: 0 !important; padding: 0 !important; overflow: hidden !important; background: transparent !important; }
-.embed-mode #stage { position: absolute !important; left: 50% !important; top: 50% !important; }
+.embed-mode body {
+  display: block !important;
+  width: 100% !important; height: 100% !important;
+  margin: 0 !important; padding: 0 !important;
+  overflow: hidden !important;
+  background: transparent !important;
+}
+html.embed-mode {
+  width: 100%; height: 100%;
+}
+.embed-mode #stage-wrap {
+  display: block !important;
+  position: fixed !important;
+  top: 0 !important; left: 0 !important;
+  width: 100% !important; height: 100% !important;
+  background: transparent !important;
+  overflow: hidden !important;
+}
+.embed-mode #stage {
+  position: absolute !important;
+  top: 50% !important; left: 50% !important;
+  /* transform задаётся через JS в scaleStage() */
+}
 
 :root {
   --bg: #020617; --pn: #0f172a; --bd: #1e293b;
@@ -1030,11 +1054,12 @@ function generateCode() {
   // Добавить embed-mode
   clone.classList.add('embed-mode');
 
-  // Инжектировать данные как встроенный скрипт — он выполнится до initFromUrl
+  // Инжектировать данные ПЕРВЫМ скриптом в <head> — до всех остальных
   const dataScript = clone.ownerDocument.createElement('script');
   dataScript.id = '__embed_data__';
   dataScript.textContent = `window.__EMBED_DATA__ = ${JSON.stringify(data).replace(/<\/script>/gi, '<\\/script>')};`;
-  clone.querySelector('head').appendChild(dataScript);
+  const head = clone.querySelector('head');
+  head.insertBefore(dataScript, head.firstChild);
 
   // Собираем итоговый HTML
   gameHtml = '<!DOCTYPE html>\n' + clone.outerHTML;
@@ -1066,9 +1091,10 @@ function scaleStage() {
   if (!document.documentElement.classList.contains('embed-mode')) return;
   const stg = document.getElementById('stage');
   if (!stg) return;
-  const scale = Math.min(window.innerWidth / 800, window.innerHeight / 450);
+  const W = document.documentElement.clientWidth  || window.innerWidth  || 800;
+  const H = document.documentElement.clientHeight || window.innerHeight || 450;
+  const scale = Math.min(W / 800, H / 450);
   stg.style.transform = `translate(-50%, -50%) scale(${scale})`;
-  // canvas под 800x450 - stage фиксированного размера
   [bgCanvas, canvas].forEach(c => { c.width = 800; c.height = 450; });
   const pCv = document.getElementById('particle-canvas');
   if (pCv) { pCv.width = 800; pCv.height = 450; }
@@ -1131,10 +1157,10 @@ function initFromUrl() {
     const bgUrlVal = document.getElementById('inp-bg').value.trim();
     if (bgUrlVal) applyBgUrl(bgUrlVal);
 
-    // Масштабируем stage как в попрыгунчике
+    // Масштабируем stage — rAF гарантирует что layout уже посчитан
     if (document.documentElement.classList.contains('embed-mode')) {
       window.addEventListener('resize', scaleStage);
-      scaleStage();
+      requestAnimationFrame(() => { scaleStage(); requestAnimationFrame(scaleStage); });
     }
 
     // Загрузить звуки при первом касании
