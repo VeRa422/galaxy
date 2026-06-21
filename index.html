@@ -54,9 +54,8 @@ input[type=range]{width:100%;accent-color:var(--acc)}
 /* ── STAGE ── */
 #stage-wrap{flex:1;display:flex;align-items:center;justify-content:center;background:#000;position:relative;overflow:hidden}
 #stage{position:relative;width:800px;height:450px;background:#020617;overflow:hidden;border-radius:0}
-
-/* starfield bg canvas */
-#bg-canvas{position:absolute;top:0;left:0;z-index:0;pointer-events:none}
+/* bg-canvas прозрачный — фон рисуется либо градиентом на canvas, либо CSS background-image на #stage */
+#bg-canvas{position:absolute;top:0;left:0;z-index:0;pointer-events:none;background:transparent}
 #game-canvas{position:absolute;top:0;left:0;pointer-events:none;z-index:250}
 
 /* custom cursor — crosshair telescope */
@@ -366,37 +365,7 @@ function generateBgStars() {
   }));
 }
 
-function drawBgStars() {
-  const bgUrl = document.getElementById('inp-bg').value;
-  const color = document.getElementById('col-bgstar').value;
-  bgCtx.clearRect(0,0,800,450);
 
-  if (bgUrl) {
-    const img = new Image();
-    img.onload = () => { bgCtx.drawImage(img,0,0,800,450); drawStarsOnBg(color); };
-    img.src = bgUrl;
-  } else {
-    // Deep space gradient
-    const grad = bgCtx.createRadialGradient(400,225,0,400,225,450);
-    grad.addColorStop(0,'#0a0f1e');
-    grad.addColorStop(0.5,'#020617');
-    grad.addColorStop(1,'#000005');
-    bgCtx.fillStyle = grad;
-    bgCtx.fillRect(0,0,800,450);
-    drawStarsOnBg(color);
-  }
-}
-
-function drawStarsOnBg(color) {
-  bgCtx.fillStyle = color;
-  bgStars.forEach(s => {
-    bgCtx.globalAlpha = s.opacity;
-    bgCtx.beginPath();
-    bgCtx.arc(s.x, s.y, s.r, 0, Math.PI*2);
-    bgCtx.fill();
-  });
-  bgCtx.globalAlpha = 1;
-}
 
 // Twinkle animation
 let twinkleFrame = 0;
@@ -533,17 +502,44 @@ function _runParticles(type) {
 }
 
 
+// Кеш фонового изображения
+let _bgImg = null;
+let _bgImgUrl = '';
+
+function applyBgUrl(url) {
+  const stg = document.getElementById('stage');
+  if (!stg) return;
+  const transp = document.getElementById('chk-transparent')?.checked;
+  if (url) {
+    stg.style.backgroundImage = `url("${url}")`;
+    stg.style.backgroundSize = 'cover';
+    stg.style.backgroundPosition = 'center';
+    stg.style.backgroundRepeat = 'no-repeat';
+    stg.style.backgroundColor = 'transparent';
+  } else {
+    stg.style.backgroundImage = '';
+    stg.style.backgroundSize = '';
+    stg.style.backgroundPosition = '';
+    stg.style.backgroundRepeat = '';
+    stg.style.backgroundColor = transp ? 'transparent' : '#020617';
+  }
+}
+
 function animateBgStars() {
   twinkleFrame++;
   const color = document.getElementById('col-bgstar').value;
-  const bgUrl = document.getElementById('inp-bg').value;
+  const bgUrl = document.getElementById('inp-bg').value.trim();
   const W = 800, H = 450;
   bgCtx.clearRect(0,0,W,H);
+
+  // Если нет картинки — рисуем тёмный градиент (фон stage прозрачный)
   if (!bgUrl && !window._transparentBg) {
     const grad = bgCtx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H));
     grad.addColorStop(0,'#0a0f1e'); grad.addColorStop(0.5,'#020617'); grad.addColorStop(1,'#000005');
     bgCtx.fillStyle = grad; bgCtx.fillRect(0,0,W,H);
   }
+
+  // Звёзды поверх
   bgStars.forEach(s => {
     const tw = 0.5 + 0.5*Math.sin(twinkleFrame*s.twinkleSpeed + s.twinklePhase);
     bgCtx.globalAlpha = s.opacity * (0.4 + 0.6*tw);
@@ -602,11 +598,10 @@ function updateStartIcon() {
 
 function liveStyle() {
   const c = getCfg();
-  // Прозрачный фон
+  // Прозрачный фон + фоновое изображение через CSS
   const transp = document.getElementById('chk-transparent')?.checked;
-  stage.style.background = transp ? 'transparent' : '#020617';
   window._transparentBg = !!transp;
-  animateBgStars(); // перерисовать фон
+  applyBgUrl(document.getElementById('inp-bg').value.trim());
   cursor.style.width = c.cursorSize+'px';
   cursor.style.height = c.cursorSize+'px';
   // Update cursor SVG color
@@ -1005,6 +1000,9 @@ function initFromUrl() {
     }
     // Обновить иконку старта после восстановления URL
     updateStartIcon();
+    // Предзагрузить фоновое изображение если задан URL
+    const bgUrlVal = document.getElementById('inp-bg').value.trim();
+    if (bgUrlVal) applyBgUrl(bgUrlVal);
 
     // Масштабируем stage как в попрыгунчике
     if (document.documentElement.classList.contains('embed-mode')) {
