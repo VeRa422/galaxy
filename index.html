@@ -3,11 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>СОЗВЕЗДИЯ — Редактор</title>
-<script>
-// embed-mode определяется по наличию __EMBED_DATA__ (srcdoc) или ?data= (URL)
-if(window.__EMBED_DATA__ || window.location.search.includes('data='))
-  document.documentElement.classList.add('embed-mode');
-</script>
+<script>if(window.location.search.includes('data=')) document.documentElement.classList.add('embed-mode');</script>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;700&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
 <style>
 /* ── EMBED MODE — полностью переопределяем layout ── */
@@ -280,9 +276,16 @@ input[type=range]{width:100%;accent-color:var(--acc)}
     </div>
   </div>
 
+
+
   <button class="btn btn-play" id="btn-preview" onclick="startPreview()">ЗАПУСТИТЬ ПРЕДПРОСМОТР ✦</button>
   <button class="btn btn-gen" onclick="generateCode()" style="margin-top:6px">ГЕНЕРИРОВАТЬ КОД ДЛЯ GENIALLY</button>
   <button class="btn btn-copy" id="copy-btn" onclick="copyCode()">СКОПИРОВАТЬ 📋</button>
+  <div id="gen-msg" style="color:var(--ok);font-size:10px;text-align:center;margin-top:4px;display:none">✅ Код сгенерирован!</div>
+  <div id="copy-msg" style="color:var(--ok);font-size:10px;text-align:center;margin-top:4px;display:none">✅ Скопировано!</div>
+  <div id="url-warning" style="display:none;margin-top:6px;padding:8px;background:rgba(239,68,68,0.15);border:1px solid #ef4444;border-radius:6px;font-size:11px;color:#fca5a5;line-height:1.5">
+    ⚠ Открыто локально. Загрузи этот файл на GitHub Pages или любой хостинг, открой по https:// и генерируй оттуда.
+  </div>
   <div id="gen-msg">✅ Код сгенерирован!</div>
 
   <div id="creator-credit">
@@ -996,9 +999,8 @@ function draw() {
 }
 
 
-let finalCode = '';
-function generateCode() {
-  const data = {
+function buildGameData() {
+  return {
     sentences: getSentences(),
     bgUrl: document.getElementById('inp-bg').value,
     starcount: document.getElementById('inp-starcount').value,
@@ -1032,58 +1034,40 @@ function generateCode() {
     levelTmpl: document.getElementById('lbl-level-tmpl')?.value ?? '',
     transparent: document.getElementById('chk-transparent')?.checked || false,
   };
+}
 
-  // Берём текущий HTML страницы и превращаем его в автономную игру (srcdoc)
-  let gameHtml = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+let _generatedCode = '';
 
-  // 1. Убираем редактор из HTML
-  gameHtml = gameHtml.replace(/<div id="editor"[\s\S]*?^<\/div>/m, '');
-  // Надёжнее — через маркер: убираем всё между <!-- EDITOR_START --> и <!-- EDITOR_END -->
-  // Вместо этого просто добавим embed-mode класс и инжектируем данные
+function generateCode() {
+  const data = buildGameData();
+  if (!data.sentences.length) return alert('Добавьте хотя бы одну фразу!');
 
-  // Формируем чистый game HTML: клонируем document, убираем #editor, добавляем embed-mode
-  const clone = document.documentElement.cloneNode(true);
+  const dataStr = btoa(encodeURIComponent(JSON.stringify(data)));
+  const baseUrl = window.location.href.split('?')[0];
 
-  // Убрать редактор
-  const editorEl = clone.querySelector('#editor');
-  if (editorEl) editorEl.remove();
+  const isLocal = baseUrl.startsWith('file://') || baseUrl.startsWith('blob:');
+  document.getElementById('url-warning').style.display = isLocal ? 'block' : 'none';
 
-  // Убрать кнопку предпросмотра и генерации (они снаружи editor)
-  clone.querySelectorAll('.btn-play, .btn-gen, #copy-btn, #gen-msg, #url-warning').forEach(e=>e.remove());
-
-  // Добавить embed-mode
-  clone.classList.add('embed-mode');
-
-  // Инжектировать данные ПЕРВЫМ скриптом в <head> — до всех остальных
-  const dataScript = clone.ownerDocument.createElement('script');
-  dataScript.id = '__embed_data__';
-  dataScript.textContent = `window.__EMBED_DATA__ = ${JSON.stringify(data).replace(/<\/script>/gi, '<\\/script>')};`;
-  const head = clone.querySelector('head');
-  head.insertBefore(dataScript, head.firstChild);
-
-  // Собираем итоговый HTML
-  gameHtml = '<!DOCTYPE html>\n' + clone.outerHTML;
-
-  // Экранируем для srcdoc
-  function escapeForSrcdoc(html) {
-    return html
-      .replace(/&/g, '&amp;')
-      .replace(/"/g, '&quot;')
-      .replace(/\u00a0/g, ' ');
-  }
-
-  const escaped = escapeForSrcdoc(gameHtml);
-  finalCode = `<iframe srcdoc="${escaped}" width="100%" height="100%" frameborder="0" style="border:none;display:block;background:transparent" allow="autoplay" allowtransparency="true"></iframe>`;
+  _generatedCode = `<div style="width:100%;height:100%;overflow:hidden;position:relative;background:transparent;"><iframe src="${baseUrl}?data=${dataStr}" style="width:100%;height:100%;border:none;position:absolute;top:0;left:0;background:transparent;" scrolling="no" allowtransparency="true" allow="autoplay;fullscreen" frameborder="0"></iframe></div>`;
 
   document.getElementById('copy-btn').style.display = 'block';
-  document.getElementById('gen-msg').style.display = 'block';
-  setTimeout(()=>document.getElementById('gen-msg').style.display='none', 3000);
+  const msg = document.getElementById('gen-msg');
+  msg.style.display = 'block';
+  setTimeout(() => msg.style.display = 'none', 2000);
 }
+
 function copyCode() {
-  navigator.clipboard.writeText(finalCode).then(()=>{
-    document.getElementById('copy-btn').textContent='✅ Скопировано!';
-    setTimeout(()=>document.getElementById('copy-btn').textContent='СКОПИРОВАТЬ 📋',2000);
-  });
+  const ta = document.createElement('textarea');
+  ta.value = _generatedCode;
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch(e) {
+    navigator.clipboard.writeText(_generatedCode);
+  }
+  document.body.removeChild(ta);
+  const msg = document.getElementById('copy-msg');
+  msg.style.display = 'block';
+  setTimeout(() => msg.style.display = 'none', 2000);
 }
 
 // ── EMBED MODE ────────────────────────────────────────────────────
@@ -1101,15 +1085,11 @@ function scaleStage() {
 }
 
 function initFromUrl() {
-  // Поддержка двух режимов: srcdoc (window.__EMBED_DATA__) и старый URL-параметр
-  let d = null;
-  if (window.__EMBED_DATA__) {
-    d = window.__EMBED_DATA__;
-  } else {
-    const params = new URLSearchParams(window.location.search);
-    if (!params.has('data')) return;
-    try { d = JSON.parse(decodeURIComponent(atob(params.get('data')))); } catch(e) { return; }
-  }
+  // Читаем данные из URL-параметра ?data= (как в Попрыгунчике)
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has('data')) return;
+  let d;
+  try { d = JSON.parse(decodeURIComponent(atob(params.get('data')))); } catch(e) { return; }
   if (!d) return;
   try {
 
