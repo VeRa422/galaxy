@@ -3,8 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <title>СОЗВЕЗДИЯ — Редактор</title>
+<script>if(window.location.search.includes('data='))document.documentElement.classList.add('embed-mode');</script>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;700&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
 <style>
+.embed-mode #editor { display: none !important; }
+.embed-mode #stage-wrap { background: transparent !important; }
+.embed-mode body { margin: 0; padding: 0; overflow: hidden; background: transparent !important; }
+.embed-mode #stage { position: fixed !important; top: 0 !important; left: 0 !important;
+  width: 100vw !important; height: 100vh !important; border-radius: 0 !important; }
+
 :root {
   --bg: #020617; --pn: #0f172a; --bd: #1e293b;
   --acc: #a78bfa; --acc2: #7c3aed;
@@ -441,18 +448,16 @@ function _runParticles(type) {
           color: ['#ffffff','#e2e8f0','#c4b5fd','#a78bfa'][Math.floor(Math.random()*4)]
         });
       } else if (emojis) {
-        // Emoji particle
+        // Emoji particle — плавно поднимается снизу вверх
         _particles.push({
           x: Math.random() * W,
           y: H + 30,
-          vx: (Math.random() - 0.5) * 1.5,
-          vy: -(0.4 + Math.random() * 1.2),
-          size: 16 + Math.random() * 20,
+          vx: (Math.random() - 0.5) * 0.4,
+          vy: -(0.5 + Math.random() * 0.8),
+          size: 18 + Math.random() * 16,
           life: 1,
-          decay: 0.003 + Math.random() * 0.004,
-          emoji: emojis[Math.floor(Math.random() * emojis.length)],
-          rot: Math.random() * Math.PI * 2,
-          rotSpeed: (Math.random() - 0.5) * 0.05
+          decay: 0.0025 + Math.random() * 0.002,
+          emoji: emojis[Math.floor(Math.random() * emojis.length)]
         });
       } else if (type === 'sparks') {
         _particles.push({
@@ -481,16 +486,13 @@ function _runParticles(type) {
 
   _particles.forEach(p => {
     p.x += p.vx; p.y += p.vy; p.life -= p.decay;
-    if (p.rot !== undefined) p.rot += p.rotSpeed;
     ctx.save();
     ctx.globalAlpha = Math.max(0, p.life);
     if (p.emoji) {
-      ctx.translate(p.x, p.y);
-      ctx.rotate(p.rot || 0);
       ctx.font = `${p.size}px serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(p.emoji, 0, 0);
+      ctx.fillText(p.emoji, p.x, p.y);
     } else if (type === 'sparks') {
       ctx.shadowBlur = 10; ctx.shadowColor = p.color;
       ctx.fillStyle = p.color;
@@ -934,33 +936,6 @@ function initFromUrl() {
   try {
     const d = JSON.parse(decodeURIComponent(atob(params.get('data'))));
 
-    // Скрываем редактор, растягиваем stage на весь экран
-    document.getElementById('editor').style.display = 'none';
-    document.body.style.margin = '0';
-    document.body.style.padding = '0';
-    document.body.style.overflow = 'hidden';
-    document.body.style.background = 'transparent';
-    document.getElementById('stage-wrap').style.background = 'transparent';
-
-    const stg = document.getElementById('stage');
-    stg.style.position = 'fixed';
-    stg.style.top = '0';
-    stg.style.left = '0';
-    stg.style.width = '100vw';
-    stg.style.height = '100vh';
-    stg.style.borderRadius = '0';
-
-    bgCanvas.style.width = '100vw';
-    bgCanvas.style.height = '100vh';
-    bgCanvas.width = window.innerWidth;
-    bgCanvas.height = window.innerHeight;
-    canvas.style.width = '100vw';
-    canvas.style.height = '100vh';
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    const pCv = document.getElementById('particle-canvas');
-    if (pCv) { pCv.style.width='100vw'; pCv.style.height='100vh'; pCv.width=window.innerWidth; pCv.height=window.innerHeight; }
-
     // Восстановить настройки
     const map = {
       bgUrl:'inp-bg', starcount:'inp-starcount', tabSize:'inp-tabsize',
@@ -969,8 +944,9 @@ function initFromUrl() {
       colLine:'col-line', colSlot:'col-slot', colCursor:'col-cursor',
       artifactLbl:'lbl-artifact', winTitle:'lbl-win-title',
       winText:'lbl-win-text', againLbl:'lbl-again',
-      sOk:'s-ok', sErr:'s-err', sLevel:'s-level', sWin:'snd-win',
-      tabOpacity:'inp-tab-opacity', particles:'sel-particles', particleCount:'inp-particle-count'
+      tabOpacity:'inp-tab-opacity', particles:'sel-particles',
+      particleCount:'inp-particle-count',
+      sOk:'s-ok', sErr:'s-err', sLevel:'s-level', sWin:'snd-win'
     };
     Object.entries(map).forEach(([k,id]) => {
       const el = document.getElementById(id);
@@ -980,9 +956,23 @@ function initFromUrl() {
       document.getElementById('sentences-list').innerHTML = '';
       d.sentences.forEach(s => addSentence(s));
     }
-    if (d.transparent) {
+    if (d.transparent !== undefined) {
       const chk = document.getElementById('chk-transparent');
-      if (chk) chk.checked = true;
+      if (chk) chk.checked = d.transparent;
+    }
+
+    // В embed режиме растянуть canvas под реальный экран
+    if (document.documentElement.classList.contains('embed-mode')) {
+      bgCanvas.width = window.innerWidth; bgCanvas.height = window.innerHeight;
+      canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+      const pCv = document.getElementById('particle-canvas');
+      if (pCv) { pCv.width = window.innerWidth; pCv.height = window.innerHeight; }
+      window.addEventListener('resize', () => {
+        bgCanvas.width = window.innerWidth; bgCanvas.height = window.innerHeight;
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        if (pCv) { pCv.width = window.innerWidth; pCv.height = window.innerHeight; }
+        animateBgStars();
+      });
     }
 
     // Загрузить звуки при первом касании
@@ -992,11 +982,10 @@ function initFromUrl() {
       document.removeEventListener('pointermove', _init);
     }, {once: true});
 
-    // Перегенерировать звёзды и запустить эффекты
+    // Запустить фон и эффекты
+    liveStyle();
     animateBgStars();
     startParticles();
-    liveStyle();
-
     setTimeout(startPreview, 300);
   } catch(e) { console.error('URL parse error', e); }
 }
