@@ -199,6 +199,8 @@ input[type=range]{width:100%;accent-color:var(--acc)}
   <h2>✏️ ТЕКСТЫ</h2>
   <div class="box">
     <div class="ui-grid">
+      <div class="ui-item"><label>Заголовок старта</label><input type="text" id="lbl-start-title" value="СОЗВЕЗДИЯ" oninput="liveStyle()"></div>
+      <div class="ui-item"><label>Подзаголовок старта</label><input type="text" id="lbl-start-sub" value="Наводи курсор на звёзды в правильном порядке слов" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Созвездие</label><input type="text" id="lbl-artifact" value="Созвездие" oninput="liveStyle()"></div>
 
       <div class="ui-item"><label>Заголовок победы</label><input type="text" id="lbl-win-title" value="КАРТА НЕБЕС ОТКРЫТА!" oninput="liveStyle()"></div>
@@ -326,7 +328,7 @@ input[type=range]{width:100%;accent-color:var(--acc)}
           <span style="font-size:52px;filter:drop-shadow(0 0 20px #a78bfa);line-height:1">✦</span>
         </div>
         <h2 id="s-start-title" style="font-family:'Chakra Petch';font-size:2rem;color:#a78bfa;margin-bottom:12px;text-shadow:0 0 30px #7c3aed;letter-spacing:4px">СОЗВЕЗДИЯ</h2>
-        <p style="color:#94a3b8;font-size:14px;margin-bottom:28px;line-height:1.6">Наводи курсор на звёзды<br>в правильном порядке слов</p>
+        <p id="s-start-sub" style="color:#94a3b8;font-size:14px;margin-bottom:28px;line-height:1.6">Наводи курсор на звёзды в правильном порядке слов</p>
         <button onclick="startGame()" style="padding:14px 36px;background:linear-gradient(135deg,#7c3aed,#a78bfa);border:none;font-family:'Chakra Petch';font-weight:bold;color:#fff;border-radius:8px;cursor:pointer;font-size:15px;letter-spacing:2px;box-shadow:0 0 20px #7c3aed88">НАЧАТЬ</button>
       </div>
     </div>
@@ -707,6 +709,10 @@ function liveStyle() {
       || `${c.artifactLbl} ${game.current+1} из ${game.sentences.length}`;
     if (levelEl) levelEl.textContent = txt;
   }
+const startTitleEl = document.getElementById('s-start-title');
+  if (startTitleEl) startTitleEl.textContent = document.getElementById('lbl-start-title')?.value || 'СОЗВЕЗДИЯ';
+  const startSubEl = document.getElementById('s-start-sub');
+  if (startSubEl) startSubEl.textContent = document.getElementById('lbl-start-sub')?.value || '';
 }
 
 function restartToStart() {
@@ -1042,6 +1048,8 @@ function buildGameData() {
     winTitle: document.getElementById('lbl-win-title').value,
     winText: document.getElementById('lbl-win-text').value,
     againLbl: document.getElementById('lbl-again').value,
+    startTitle: document.getElementById('lbl-start-title')?.value || 'СОЗВЕЗДИЯ',
+    startSub: document.getElementById('lbl-start-sub')?.value || '',
     sOk: document.getElementById('s-ok').value,
     sErr: document.getElementById('s-err').value,
     sLevel: document.getElementById('s-level').value,
@@ -1131,6 +1139,8 @@ function initFromUrl() {
       iconUrl:'inp-icon',
       levelTmpl:'lbl-level-tmpl',
       colParticleGlow:'col-particle-glow', colTxtGlow:'col-txt-glow'
+      startTitle:'lbl-start-title',
+      startSub:'lbl-start-sub',
     };
     Object.entries(map).forEach(([k,id]) => {
       const el = document.getElementById(id);
@@ -1202,6 +1212,7 @@ const defaultSentences = [
   "Скорпион виден летом на юге"
 ];
 defaultSentences.forEach(s => addSentence(s));
+generateBgStars();
 animateBgStars();
 startParticles();
 liveStyle();
