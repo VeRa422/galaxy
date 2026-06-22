@@ -638,7 +638,7 @@ function getCfg() {
     colLine: document.getElementById('col-line').value,
     colSlot: document.getElementById('col-slot').value,
     colCursor: document.getElementById('col-cursor').value,
-    artifactLbl: document.getElementById('lbl-artifact').value,
+    artifactLbl: document.getElementById('lbl-artifact')?.value || 'Созвездие',
     winTitle: document.getElementById('lbl-win-title').value,
     winText: document.getElementById('lbl-win-text').value,
     againLbl: document.getElementById('lbl-again').value,
