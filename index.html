@@ -204,7 +204,7 @@ input[type=range]{width:100%;accent-color:var(--acc)}
       <div class="ui-item"><label>Заголовок победы</label><input type="text" id="lbl-win-title" value="КАРТА НЕБЕС ОТКРЫТА!" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Текст победы</label><input type="text" id="lbl-win-text" value="Все созвездия найдены!" oninput="liveStyle()"></div>
       <div class="ui-item"><label>Ещё раз</label><input type="text" id="lbl-again" value="Снова в небо" oninput="liveStyle()"></div>
-
+      <div class="ui-item"><label>Кнопка старта</label><input type="text" id="lbl-start-btn" value="НАЧАТЬ" oninput="liveStyle()"></div>
     </div>
   </div>
 
@@ -709,8 +709,10 @@ function liveStyle() {
   }
 const startTitleEl = document.getElementById('s-start-title');
   if (startTitleEl) startTitleEl.textContent = document.getElementById('lbl-start-title')?.value || 'СОЗВЕЗДИЯ';
-  const startSubEl = document.getElementById('s-start-sub');
+const startSubEl = document.getElementById('s-start-sub');
   if (startSubEl) startSubEl.textContent = document.getElementById('lbl-start-sub')?.value || '';
+  const startBtnEl = document.querySelector('#s-start button');
+  if (startBtnEl) startBtnEl.textContent = document.getElementById('lbl-start-btn')?.value || 'НАЧАТЬ';
 }
 
 function restartToStart() {
@@ -1048,6 +1050,7 @@ function buildGameData() {
     againLbl: document.getElementById('lbl-again').value,
     startTitle: document.getElementById('lbl-start-title')?.value || 'СОЗВЕЗДИЯ',
     startSub: document.getElementById('lbl-start-sub')?.value || '',
+    startBtn: document.getElementById('lbl-start-btn')?.value || 'НАЧАТЬ',
     sOk: document.getElementById('s-ok').value,
     sErr: document.getElementById('s-err').value,
     sLevel: document.getElementById('s-level').value,
@@ -1139,6 +1142,7 @@ function initFromUrl() {
       colParticleGlow:'col-particle-glow', colTxtGlow:'col-txt-glow',
       startTitle:'lbl-start-title',
       startSub:'lbl-start-sub',
+      startBtn:'lbl-start-btn',
     };
     Object.entries(map).forEach(([k,id]) => {
       const el = document.getElementById(id);
