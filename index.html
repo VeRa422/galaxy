@@ -189,7 +189,11 @@ input[type=range]{width:100%;accent-color:var(--acc)}
       Игрок наводит курсор на звёзды в <b>правильном порядке слов</b>, соединяя созвездие.
     </div>
     <div id="sentences-list"></div>
-    <button id="add-sentence-btn" onclick="addSentence()">✦ Добавить фразу</button>
+   <button id="add-sentence-btn" onclick="addSentence()">✦ Добавить фразу</button>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:6px;border-top:1px solid var(--bd)">
+      <input type="checkbox" id="chk-shuffle" style="width:16px;height:16px;accent-color:#a78bfa;cursor:pointer">
+      <label for="chk-shuffle" style="cursor:pointer;font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:1px">Случайный порядок фраз</label>
+    </div>
   </div>
 
   <h2>✏️ ТЕКСТЫ</h2>
@@ -715,6 +719,15 @@ function restartToStart() {
   game.transitioning = false;
   game.coins = [];
   document.getElementById('words-layer').innerHTML = '';
+  // Пересобрать sentences с учётом shuffle (новый порядок при каждом перезапуске)
+  {
+    let sents = getSentences();
+    if (document.getElementById('chk-shuffle')?.checked) {
+      sents = [...sents].sort(() => Math.random() - 0.5);
+    }
+    game.sentences = sents.map(s => s.split(/\s+/).filter(w=>w.length>0));
+  }
+  buildSlots();
   // Показать стартовый экран снова (с иконкой)
   const startEl = document.getElementById('s-start');
   if (startEl) startEl.style.display = 'flex';
@@ -723,8 +736,12 @@ function restartToStart() {
 
 function startGame() {
   // Запустить игру (вызывается кнопкой НАЧАТЬ на стартовом экране)
-  if (!game.sentences || !game.sentences.length) {
-    game.sentences = getSentences().map(s => s.split(/\s+/).filter(w=>w.length>0));
+if (!game.sentences || !game.sentences.length) {
+    let sents = getSentences();
+    if (document.getElementById('chk-shuffle')?.checked) {
+      sents = [...sents].sort(() => Math.random() - 0.5);
+    }
+    game.sentences = sents.map(s => s.split(/\s+/).filter(w=>w.length>0));
   }
   if (!game.sentences.length) return;
   game.active = true; game.current = 0; game.transitioning = false;
@@ -738,7 +755,13 @@ function startGame() {
 
 function startPreview() {
   // Вызывается кнопкой редактора — показывает стартовый экран
-  game.sentences = getSentences().map(s => s.split(/\s+/).filter(w=>w.length>0));
+ {
+    let sents = getSentences();
+    if (document.getElementById('chk-shuffle')?.checked) {
+      sents = [...sents].sort(() => Math.random() - 0.5);
+    }
+    game.sentences = sents.map(s => s.split(/\s+/).filter(w=>w.length>0));
+  }
   if (!game.sentences.length) return alert('Добавьте хотя бы одну фразу!');
   liveStyle();
   animateBgStars();
@@ -1033,6 +1056,7 @@ function buildGameData() {
     txtGlow: document.getElementById('chk-txt-glow')?.checked !== false,
     levelTmpl: document.getElementById('lbl-level-tmpl')?.value ?? '',
     transparent: document.getElementById('chk-transparent')?.checked || false,
+   shuffleSentences: document.getElementById('chk-shuffle')?.checked || false,
   };
 }
 
@@ -1128,6 +1152,10 @@ function initFromUrl() {
     if (d.transparent !== undefined) {
       const chk = document.getElementById('chk-transparent');
       if (chk) chk.checked = d.transparent;
+    }
+  if (d.shuffleSentences !== undefined) {
+      const chk = document.getElementById('chk-shuffle');
+      if (chk) chk.checked = d.shuffleSentences;
     }
     // Обновить иконку старта после восстановления URL
     updateStartIcon();
